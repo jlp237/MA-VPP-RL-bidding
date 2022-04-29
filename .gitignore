@@ -131,3 +131,6 @@ dmypy.json
 iframe_figures/
 
 ~$*
+
+runs/
+wandb/
