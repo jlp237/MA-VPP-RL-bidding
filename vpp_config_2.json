@@ -1,0 +1,78 @@
+{
+    "config": {
+        "csv_paths":{
+            "renewables" :  "data/clean/renewables.csv", 
+            "tenders" :  "data/clean/tenders_all.csv",
+            "bids": "data/clean/bids_all.csv",
+            "time_features" : "data/clean/time_features.csv"
+        },
+        "time": {
+            "hist_window_size" : 1,  
+            "forecast_window_size" : 1, 
+            "first_slot_date" : "2021-01-02 22:00:00+00:00", 
+            "last_slot_date" : "2021-12-29 19:00:00+00:00"
+        }
+    }, 
+    "assets": {
+        
+          "hydro": [ 
+            {
+              "type": "run-of-river",
+              "max_capacity_kW": 50, 
+              "max_FCR_capacity_kW": 174.74,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }, 
+           {
+              "type": "run-of-river",
+              "max_capacity_kW": 150, 
+              "max_FCR_capacity_kW": 101.08,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }, 
+            {
+              "type": "run-of-river",
+              "max_capacity_kW": 350, 
+              "max_FCR_capacity_kW": 380.26,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }, 
+                {
+              "type": "run-of-river",
+              "max_capacity_kW": 750, 
+              "max_FCR_capacity_kW": 266.96 ,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }, 
+             {
+              "type": "run-of-river",
+              "max_capacity_kW": 1500, 
+              "max_FCR_capacity_kW": 418.95,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }, 
+                {
+              "type": "run-of-river",
+              "max_capacity_kW": 3500, 
+              "max_FCR_capacity_kW": 221.46,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }, 
+            {
+              "type": "run-of-river",
+              "max_capacity_kW": 6000, 
+              "max_FCR_capacity_kW": 436.53,
+              "quantity": 177,
+              "asset_column_name": "Hydro1"
+              }
+          ],
+        "wind": [
+            {
+              "max_capacity_kW": 50, 
+              "max_FCR_capacity_kW": 174.74,
+              "quantity": 177,
+              "asset_column_name": "WP1"
+          }
+        ]
+    }
+}

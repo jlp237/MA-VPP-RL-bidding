@@ -17,62 +17,54 @@
         
           "hydro": [ 
             {
-              "type": "run-of-river",
-              "max_capacity_kW": 50, 
-              "max_FCR_capacity_kW": 174.74,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+                "type": "run-of-river",
+                 "max_capacity_kW": 50, 
+                 "quantity": 177,
+                 "max_FCR_capacity_share": 0.1,
+                 "asset_column_names": ["Hydro1", "Hydro3"]                
               }, 
            {
               "type": "run-of-river",
-              "max_capacity_kW": 150, 
-              "max_FCR_capacity_kW": 101.08,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+              "max_capacity_kW": 150,
+              "quantity": 32,
+              "max_FCR_capacity_share": 0.1,
+              "asset_column_names": ["Hydro1", "Hydro3"]        
               }, 
             {
               "type": "run-of-river",
               "max_capacity_kW": 350, 
-              "max_FCR_capacity_kW": 380.26,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+              "quantity": 51,
+              "max_FCR_capacity_share": 0.1,
+              "asset_column_names": ["Hydro1", "Hydro3"]        
               }, 
                 {
               "type": "run-of-river",
               "max_capacity_kW": 750, 
-              "max_FCR_capacity_kW": 266.96 ,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+              "quantity": 22,
+              "max_FCR_capacity_share": 0.1,
+              "asset_column_names": ["Hydro1", "Hydro3"]        
               }, 
              {
               "type": "run-of-river",
               "max_capacity_kW": 1500, 
-              "max_FCR_capacity_kW": 418.95,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+              "quantity": 20,
+              "max_FCR_capacity_share": 0.1,
+              "asset_column_names": ["Hydro1", "Hydro3"]        
               }, 
                 {
               "type": "run-of-river",
               "max_capacity_kW": 3500, 
-              "max_FCR_capacity_kW": 221.46,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+              "quantity": 10,
+              "max_FCR_capacity_share": 0.1,
+              "asset_column_names": ["Hydro1", "Hydro3"]        
               }, 
             {
               "type": "run-of-river",
-              "max_capacity_kW": 6000, 
-              "max_FCR_capacity_kW": 436.53,
-              "quantity": 177,
-              "asset_column_name": "Hydro1"
+              "max_capacity_kW": 5000, 
+              "quantity": 6,
+              "max_FCR_capacity_share": 0.1,
+              "asset_column_names":["Hydro1", "Hydro3"]        
               }
-          ],
-        "wind": [
-            {
-              "max_capacity_kW": 50, 
-              "max_FCR_capacity_kW": 174.74,
-              "quantity": 177,
-              "asset_column_name": "WP1"
-          }
-        ]
+          ]
     }
 }
