@@ -5,7 +5,8 @@
             "tenders" :  "data/clean/tenders_all.csv",
             "market_results": "data/clean/market_results.csv",
             "bids": "data/clean/bids_all.csv",
-            "time_features" : "data/clean/time_features.csv"
+            "time_features" : "data/clean/time_features.csv",
+            "test_set" : "data/clean/test_set.csv"
         },
         "time": {
             "hist_window_size" : 1,  

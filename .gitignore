@@ -76,6 +76,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+/vpp-gym/vpp_gym/.ipynb_checkpoints
 
 # IPython
 profile_default/
