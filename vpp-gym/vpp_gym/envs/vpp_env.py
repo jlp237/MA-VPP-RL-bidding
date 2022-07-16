@@ -1,4 +1,5 @@
 # Basics
+from cgi import test
 import os
 import random
 import warnings
@@ -75,7 +76,7 @@ class VPPBiddingEnv(Env):
         
         self.asset_data , self.asset_data_FCR = self._configure_vpp()
         self.asset_data_total = self.asset_data.loc[:,"Total"]
-        self.asset_data_FCR_total = self.asset_data_FCR.loc[:,"Total"]
+        #self.asset_data_FCR_total = self.asset_data_FCR.loc[:,"Total"]
         self.maximum_possible_VPP_capacity = round(self.asset_data_total.max(),2) + 0.01
         
         self.total_slot_FCR_demand = None
@@ -125,7 +126,7 @@ class VPPBiddingEnv(Env):
         
         # Slots 
         #self.slots_won = [0, 0, 0, 0, 0, 0]
-        #self.slot_prices_DE = [0., 0., 0., 0., 0., 0.]
+        #self.slot_settlement_prices_DE = [0., 0., 0., 0., 0., 0.]
         
         self.delivery_results = {}
         self.previous_delivery_results  = {}
@@ -233,8 +234,8 @@ class VPPBiddingEnv(Env):
         self.bool_scaler = MinMaxScaler(feature_range=(-1,1))
         self.bool_scaler.fit(np.array([0,1]).reshape(-1, 1))
         
-        self.slot_prices_DE_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.slot_prices_DE_scaler.fit(np.array([0.0, 4257.07]).reshape(-1, 1))
+        self.slot_settlement_prices_DE_scaler = MinMaxScaler(feature_range=(-1,1))
+        self.slot_settlement_prices_DE_scaler.fit(np.array([0.0, 4257.07]).reshape(-1, 1))
         
          # Create a observation space with all observations inside
         self.observation_space = Dict({
@@ -248,7 +249,7 @@ class VPPBiddingEnv(Env):
             "followsHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32), #Discrete(2), # followsHoliday = 1, no followsHoliday = 0
             "priorHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  #Discrete(2), # priorHoliday = 1, no priorHoliday = 0
             "slots_won": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32), #MultiBinary(6), #boolean for each slot, 0 if loss , 1 if won 
-            "slot_prices_DE": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
+            "slot_settlement_prices_DE": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
             })
 
         self.observation = None
@@ -357,15 +358,12 @@ class VPPBiddingEnv(Env):
                     date_to_check =  self.lower_slot_start_boundary + pd.offsets.DateOffset(days=1)
                     # convert to string and only take the date digits
                     date_to_check = str(date_to_check)[0:10]  
-                    print("date_to_check = " + str(date_to_check))
                     if date_to_check not in self.test_set_date_list:
                         next_date_in_test_set = False
                         if (pd.to_datetime(date_to_check, utc=True)) > pd.to_datetime(self.test_set_date_list[-1], utc=True):
                             break
                     else:
                         next_date_in_test_set = True 
-                        print("date_to_check is in list ")
-                        print("choosen next self.lower_slot_start_boundary " + str(self.lower_slot_start_boundary))
             
             self.gate_closure = pd.to_datetime(self.tenders_df[self.lower_slot_start_boundary:]["GATE_CLOSURE_TIME"][0])
             self.slot_start = self.tenders_df[self.lower_slot_start_boundary:].index[0]
@@ -388,7 +386,7 @@ class VPPBiddingEnv(Env):
         logging.debug("self.previous_delivery_results = " + str(self.previous_delivery_results))
         
         self.delivery_results["slots_won"] = [0, 0, 0, 0, 0, 0]
-        self.delivery_results["slot_prices_DE"] = [0., 0., 0., 0., 0., 0.]
+        self.delivery_results["slot_settlement_prices_DE"] = [0., 0., 0., 0., 0., 0.]
         
         # reset for each episode 
         self._get_new_timestamps()
@@ -454,7 +452,7 @@ class VPPBiddingEnv(Env):
             print("initial = " + str(self.initial))
             
             self.observation["slots_won"] = np.array(self.delivery_results["slots_won"], dtype=np.int32)
-            self.observation["slot_prices_DE"] = np.array(self.delivery_results["slot_prices_DE"], dtype=np.float32)
+            self.observation["slot_settlement_prices_DE"] = np.array(self.delivery_results["slot_settlement_prices_DE"], dtype=np.float32)
             
             
         if (self.done is True) or (self.initial is True):
@@ -526,10 +524,10 @@ class VPPBiddingEnv(Env):
         slots_won_norm = self.bool_scaler.transform(np.array(slots_won).reshape(-1, 1))
         slots_won_norm = slots_won_norm.flatten().astype('float32')
         
-        slot_prices_DE = np.array(self.delivery_results["slot_prices_DE"], dtype=np.float32)
-        slot_prices_DE_norm = self.slot_prices_DE_scaler.transform((slot_prices_DE.reshape(-1, 1)))
-        #slot_prices_DE_norm = [x for xs in list(slot_prices_DE_norm) for x in xs]
-        slot_prices_DE_norm = slot_prices_DE_norm.flatten().astype('float32')
+        slot_settlement_prices_DE = np.array(self.delivery_results["slot_settlement_prices_DE"], dtype=np.float32)
+        slot_settlement_prices_DE_norm = self.slot_settlement_prices_DE_scaler.transform((slot_settlement_prices_DE.reshape(-1, 1)))
+        #slot_settlement_prices_DE_norm = [x for xs in list(slot_settlement_prices_DE_norm) for x in xs]
+        slot_settlement_prices_DE_norm = slot_settlement_prices_DE_norm.flatten().astype('float32')
 
         self.observation = OrderedDict({
             "asset_data_historic": asset_data_historic_norm,
@@ -542,7 +540,7 @@ class VPPBiddingEnv(Env):
             "followsHoliday": followsHoliday_norm,
             "priorHoliday": priorHoliday_norm,
             "slots_won": slots_won_norm,
-            "slot_prices_DE": slot_prices_DE_norm
+            "slot_settlement_prices_DE": slot_settlement_prices_DE_norm
             })
         
         logging.debug("NEW Observation = "  + str(self.observation))
@@ -662,10 +660,10 @@ class VPPBiddingEnv(Env):
                 # extract the bid size of the agent 
                 agents_bid_size = self.delivery_results["agents_bid_sizes_round"][slot]
                 # and calculate the reward by multiplying the bid size with the settlement price of the slot
-                step_profit = (agents_bid_size * self.delivery_results["slot_prices_DE"][slot])
+                step_profit = (agents_bid_size * self.delivery_results["slot_settlement_prices_DE"][slot])
                 
                 # Step 3: validate if the VPP can deliver the traded capacity
-                self._simulate_delivery(slot, action_dict)
+                self._simulate_delivery(slot)
                 logging.debug("self.delivery_results['delivered_slots']")
                 logging.debug(self.delivery_results["delivered_slots"])
 
@@ -678,7 +676,7 @@ class VPPBiddingEnv(Env):
                 step_reward +=  step_profit
                 
                 logging.debug("agents_bid_size: " + str(agents_bid_size))
-                logging.debug("self.delivery_results['slot_prices_DE'][slot]: " + str(self.delivery_results["slot_prices_DE"][slot]))
+                logging.debug("self.delivery_results['slot_settlement_prices_DE'][slot]: " + str(self.delivery_results["slot_settlement_prices_DE"][slot]))
                 logging.debug("step_profit: " + str(step_profit))
                 logging.debug("partial step_reward : " + str(step_reward))
                 
@@ -745,7 +743,7 @@ class VPPBiddingEnv(Env):
                     # Render Delivery for Capacity 
                     delivery_plot = go.Figure()
                     delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["vpp_total"], fill='tozeroy', fillcolor='rgba(0, 85, 255, 0.4)',  line_color="blue", name="VPP Cap."))
-                    delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["vpp_total_FCR"], fill='tozeroy', line_color="green", name="VPP FCR Cap." )) 
+                    #delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["vpp_total_FCR"], fill='tozeroy', line_color="green", name="VPP FCR Cap." )) 
                     delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["bid_sizes_all_slots"], fill='tozeroy', fillcolor='rgba(255, 0, 0, 0.5)', line_color="red", name="Agents Bid" )) 
 
                     # Render Delivery for each Slot 
@@ -771,7 +769,7 @@ class VPPBiddingEnv(Env):
                     # Render Agents Slot Prices and Settlement Prices 
 
                     price_plot = go.Figure()
-                    price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_delivery_results["settlement_price_DE"], line_color="blue", name="Market Price"))
+                    price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_delivery_results["slot_settlement_prices_DE"], line_color="blue", name="Market Price"))
                     price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_delivery_results["agents_bid_prices"] , line_color="red", name="Agents Price" )) 
 
 
@@ -802,10 +800,10 @@ class VPPBiddingEnv(Env):
     def _simulate_vpp(self):
         
         vpp_total = self.asset_data_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
-        vpp_total_FCR = self.asset_data_FCR_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
+        #vpp_total_FCR = self.asset_data_FCR_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
         
         self.delivery_results["vpp_total"] = vpp_total
-        self.delivery_results["vpp_total_FCR"] = vpp_total_FCR
+        #self.delivery_results["vpp_total_FCR"] = vpp_total_FCR
         self.delivery_results["bid_sizes_all_slots"] = [0] * 96
         
     
@@ -822,7 +820,6 @@ class VPPBiddingEnv(Env):
         logging.info("Forecast Data Window: from %s to %s " % (self.forecast_start, self.forecast_end))
 
         self.delivery_results["agents_bid_prices"] = [None,None,None,None,None,None]
-        self.delivery_results["settlement_price_DE"] = [None,None,None,None,None,None]
         self.delivery_results["agents_bid_sizes_round"] = [None,None,None,None,None,None]
         self.delivery_results["slots_won"] = [None,None,None,None,None,None]
 
@@ -846,7 +843,7 @@ class VPPBiddingEnv(Env):
             # get settlement price
             settlement_price_DE = [bid['settlement_price'] for bid in slot_bids_list if bid['country']== "DE"][0] 
             logging.info( "settlement_price_DE : " + str(settlement_price_DE))
-            self.delivery_results["settlement_price_DE"][slot] = settlement_price_DE
+            self.delivery_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
 
             
             # First check if agents bid price is higher than the settlement price of Germany 
@@ -854,8 +851,8 @@ class VPPBiddingEnv(Env):
             if (agents_bid_price > settlement_price_DE) or (agents_bid_size == 0):
                 # if it is higher, the slot is lost. 
                 self.delivery_results["slots_won"][slot] = 0
-                # set settlement price for the current auctioned slot in slot_prices_DE list
-                self.delivery_results["slot_prices_DE"][slot] = settlement_price_DE
+                # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
+                #self.delivery_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
             else: 
                 # If agents bid price is lower than settlement price (bid could be in awarded bids)
                 # get CBMP of countries without LMP
@@ -884,14 +881,16 @@ class VPPBiddingEnv(Env):
                 accumulated_replaced_capacity = 0
                 
                 slot_bids_filtered_size_sum = sum([bid['size'] for bid in slot_bids_filtered])
-                    # for the case the action_dict space is not dynamic and agent can choose any bid size,
-                    # it needs to be checked here if 
+                # for the case the action_dict space is not dynamic and agent can choose any bid size,
+                 # it needs to be checked here if the agents_bid_size is too big and unrealistic
                 if agents_bid_size >= slot_bids_filtered_size_sum:
                     logging.debug("unrealistic bid size")
                     # set auction won to false
                     self.delivery_results["slots_won"][slot] = 0
-                    # set settlement price to zero as it is an unrealistic auciton
-                    self.delivery_results["slot_prices_DE"][slot] = 0
+                    # set settlement price to zero as it is an unrealistic auction
+                    ##self.delivery_results["slot_settlement_prices_DE"][slot] = 0
+                    # i would rather set the old settlement_price_DE as the market price instead of blank 0. 
+                    self.delivery_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
                 else:
                     for bid in range(0, len(slot_bids_filtered)): 
                         logging.debug("bid size = " + str(slot_bids_filtered[-(bid+1)]["size"]))
@@ -905,23 +904,24 @@ class VPPBiddingEnv(Env):
                             if slot_bids_filtered[-(bid+1)]["indivisible"] is False:
                                 logging.debug("bid is divisible, so current bids price is new settlement price")
                                 new_settlement_price_DE = slot_bids_filtered[-(bid+1)]["price"]
+                                logging.info("new_settlement_price_DE = " + str( new_settlement_price_DE))
+                                # set boolean for auction win
+                                self.delivery_results["slots_won"][slot] = 1
+                                # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
+                                self.delivery_results["slot_settlement_prices_DE"][slot] = new_settlement_price_DE
+                                break
                             else:
                                 logging.debug("bid is INDIVISIBLE, so move one bids further is new settlement price")
                                 accumulated_replaced_capacity -= bid_capacity
                                 continue
-                            logging.info("new_settlement_price_DE = " + str( new_settlement_price_DE))
-                            # set boolean for auction win
-                            self.delivery_results["slots_won"][slot] = 1
-                            # set settlement price for the current auctioned slot in slot_prices_DE list
-                            self.delivery_results["slot_prices_DE"][slot] = new_settlement_price_DE
-                            break
+                        
 
             logging.info("self.delivery_results['slots_won'] = ")
             logging.info("\n".join("slot won: \t{}".format(k) for k in self.delivery_results["slots_won"]))
             logging.info("     agents bid_size = ")
             logging.info("\n".join("size: \t{}".format(round(k) )for k in action_dict["size"]))            
-            logging.info("self.delivery_results['slot_prices_DE'] = ")
-            logging.info("\n".join("price: \t{}".format(k) for k in self.delivery_results["slot_prices_DE"]))
+            logging.info("self.delivery_results['slot_settlement_prices_DE'] = ")
+            logging.info("\n".join("price: \t{}".format(k) for k in self.delivery_results["slot_settlement_prices_DE"]))
             
             
     def _prepare_delivery(self):
@@ -951,7 +951,7 @@ class VPPBiddingEnv(Env):
         for slot in range (0,6):
             self.delivery_results["delivered_slots"][slot] = None
             
-    def _check_delivery_possible(self, agent_bid_size, vpp_total_FCR_slot):
+    def _check_delivery_possible(self, agent_bid_size, vpp_total_slot):
         '''
         
         '''
@@ -1007,31 +1007,33 @@ class VPPBiddingEnv(Env):
         if delivery_possible == True:
             # when negative FCR :
             if capacity_to_deliver < 0:
-                if (vpp_total_FCR_slot - abs(capacity_to_deliver)) < 0:
-                    logging.error("Error, FCR is smaller than vpp_total_FCR_slot")
+                if (vpp_total_slot - abs(capacity_to_deliver)) < 0:
+                    logging.error("Error, FCR is smaller than vpp_total_slot")
                     delivery_possible = False
             # if positive FCR
             else:
                 # if the plant is already at maximum limit, then it cant produce more
-                if (vpp_total_FCR_slot + capacity_to_deliver) > self.maximum_possible_VPP_capacity: 
+                if (vpp_total_slot + capacity_to_deliver) > self.maximum_possible_VPP_capacity: 
                     logging.error("Error, FCR is larger than maximum_possible_VPP_capacity")
                     delivery_possible = False
                 # if the plant cant produce any power then positive FCR is also not possible
-                if capacity_to_deliver >= vpp_total_FCR_slot:
-                    logging.error("Error, FCR is larger than vpp_total_FCR_slot")
+                if capacity_to_deliver >= vpp_total_slot:
+                    logging.error("Error, FCR is larger than vpp_total_slot")
                     delivery_possible = False
                     
         logging.debug("check No. 4: delivery_possible : " + str(delivery_possible))
         return delivery_possible
+    
 
-    def _simulate_delivery(self, slot, action_dict): 
+    def _simulate_delivery(self, slot): 
         logging.debug("Delivery Simulation for Slot No. " + str(slot))
         
-        #vpp_total_slot = self.delivery_results["vpp_total"][slot *16 : (slot+1)*16]
-        vpp_total_FCR_slot = self.delivery_results["vpp_total_FCR"][slot *16 : (slot+1)*16]
+        vpp_total_slot = self.delivery_results["vpp_total"][slot *16 : (slot+1)*16]
+        #vpp_total_FCR_slot = self.delivery_results["vpp_total_FCR"][slot *16 : (slot+1)*16]
         bid_sizes_per_slot = self.delivery_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]
         
-        logging.debug("vpp_total_FCR_slot " + str(vpp_total_FCR_slot))
+        #logging.debug("vpp_total_FCR_slot " + str(vpp_total_FCR_slot))
+        logging.debug("vpp_total_slot " + str(vpp_total_slot))
         logging.debug("bid_sizes_per_slot " + str(bid_sizes_per_slot))
 
         delivery_possible = None
@@ -1042,16 +1044,16 @@ class VPPBiddingEnv(Env):
         
             agent_bid_size = bid_sizes_per_slot[time_step]
            
-            logging.debug("vpp_total_FCR_slot[time_step] for  time_step =" + str(time_step) + " : " + str(vpp_total_FCR_slot[time_step]))
+            logging.debug("vpp_total_slot[time_step] for  time_step =" + str(time_step) + " : " + str(vpp_total_slot[time_step]))
             logging.debug("bid_sizes_per_slot[time_step] for time_step ="  + str(time_step) + " :  " + str(bid_sizes_per_slot[time_step]))
 
             # check if positive FCR could be provided 
             logging.debug("check positive FCR")
-            delivery_possible = self._check_delivery_possible(agent_bid_size, vpp_total_FCR_slot[time_step])
+            delivery_possible = self._check_delivery_possible(agent_bid_size, vpp_total_slot[time_step])
             delivery_possible_list.append(delivery_possible)
             # check if negative FCR could be provided 
             logging.debug("check negative FCR")
-            delivery_possible = self._check_delivery_possible(-agent_bid_size, vpp_total_FCR_slot[time_step])
+            delivery_possible = self._check_delivery_possible(-agent_bid_size, vpp_total_slot[time_step])
             delivery_possible_list.append(delivery_possible)
 
         if all(delivery_possible_list): 
