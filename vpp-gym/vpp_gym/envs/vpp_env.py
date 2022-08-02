@@ -1,4 +1,5 @@
 # Basics
+from calendar import SUNDAY
 from cgi import test
 import os
 import random
@@ -72,6 +73,7 @@ class VPPBiddingEnv(Env):
         self.market_results = self._load_data("market_results") 
         self.bids_df = self._load_data("bids") 
         self.time_features_df = self._load_data("time_features") 
+        self.market_prices_df = self._load_data("market_prices") 
         self.test_set_date_list = self._load_test_set()
         
         self.asset_data , self.asset_data_FCR = self._configure_vpp()
@@ -80,6 +82,7 @@ class VPPBiddingEnv(Env):
         self.maximum_possible_VPP_capacity = round(self.asset_data_total.max(),2) + 0.01
         
         self.total_slot_FCR_demand = None
+        self.mean_bid_price_germany = 0.
         
         
         # window_size
@@ -122,7 +125,9 @@ class VPPBiddingEnv(Env):
         self.done = None
         self.total_reward = 0.
         self.total_profit = 0.
+        self.violation_counter = 0
         self.history = None
+        self.current_daily_mean_market_price = 0.
         
         # Slots 
         #self.slots_won = [0, 0, 0, 0, 0, 0]
@@ -165,7 +170,7 @@ class VPPBiddingEnv(Env):
 
         self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
         
-        # VERSION 2 
+        # VERSION 2 : Box 
         
         '''# Convert complex action space to flattended space
         # bid sizes =  6 DISCRETE slots from 0 to 25  = [ 25, 25, 25, 25, 25 , 25]  = in flattened = 150 values [0,1]
@@ -202,6 +207,14 @@ class VPPBiddingEnv(Env):
 
         #unflattened_action = unflatten(self.complex_action_space, flattened_action)
         #logging.debug(unflattened_action)'''
+        
+        # VERSION 4: MultiDiscrete Action Space
+        
+        '''
+        # bid sizes =  6 DISCRETE slots from 0 to 131  = [ 131, 131, 131, 131, 131 , 131]  
+        # bid prizes = 6 DISCRETE slots from 0 to 4257  = [ 4257, 4257, 4257, 4257, 4257 , 4257]
+        action_space = MultiDiscrete(np.array([[ 131, 131, 131, 131, 131 , 131]  , [ 4257, 4257, 4257, 4257, 4257 , 4257]]))
+        '''
         
         ### Normalization of Action Space 
         self.size_scaler = MinMaxScaler(feature_range=(-1,1))
@@ -333,7 +346,10 @@ class VPPBiddingEnv(Env):
         
         if self.initial is False:
             
-            
+            if self.env_type == "training": 
+                if self.forecast_end == self.last_slot_date_end:
+                    self.lower_slot_start_boundary = self.first_slot_date_start
+                
             if self.env_type == "training" or self.env_type == "test":
                 # check if next slot date is in Test set 
                 next_date_in_test_set = True
@@ -391,9 +407,10 @@ class VPPBiddingEnv(Env):
         # reset for each episode 
         self._get_new_timestamps()
         
+        self.current_daily_mean_market_price = self.market_prices_df.iloc[self.market_prices_df.index.get_indexer([self.market_end], method='nearest')]['price_DE'].values[0]
+
         # get new observation
         self._get_observation()
-        self.observation["followsHoliday"]
         
         # when first Episode is finished, set boolean.  
         self.initial = False
@@ -577,7 +594,7 @@ class VPPBiddingEnv(Env):
         self._prepare_delivery()
         
         # calculate reward from state and action 
-        step_reward = self._calculate_reward(action_dict)
+        step_reward = self._calculate_reward()
         
         self.total_reward += step_reward
             
@@ -614,19 +631,23 @@ class VPPBiddingEnv(Env):
                     "total_reward": self.total_reward,
                     "total_profit": self.total_profit,
                     "step_reward": step_reward},
-                    step=self.logging_step,
+                    #step=self.logging_step,
                     commit=False
                 )
         
         return self.observation, step_reward, self.done, info
     
     
-    def _calculate_reward(self, action_dict):        
+    def _calculate_reward(self):        
         # Step 1 of Reward Function: The Auction
         # did the agent win the auction? 
         # what was the revenue ?
         
+        self.delivery_results["total_not_procured_energy"] = [0, 0, 0, 0, 0, 0]
+        self.delivery_results["total_not_delivered_energy"] = [0, 0, 0, 0, 0, 0]
+
         step_reward = 0
+        step_profit = 0
         
         # per slot won: + 100
         # per slot won: + (bid size *  marginal prize)
@@ -651,7 +672,6 @@ class VPPBiddingEnv(Env):
                 # Approach 2 : first check if won slot could be delivered and then calculate partial reward (60 minutes - penalty minutes / 60 ) * price * size 
                 # we try Approach 1 
     
-                
                 # Step 1: award the agent for a won slot
                 step_reward += 100
                 
@@ -660,16 +680,60 @@ class VPPBiddingEnv(Env):
                 # extract the bid size of the agent 
                 agents_bid_size = self.delivery_results["agents_bid_sizes_round"][slot]
                 # and calculate the reward by multiplying the bid size with the settlement price of the slot
-                step_profit = (agents_bid_size * self.delivery_results["slot_settlement_prices_DE"][slot])
+                basic_compensation = (agents_bid_size * self.delivery_results["slot_settlement_prices_DE"][slot])
+                logging.debug("basic_compensation: " + str(basic_compensation))
+                step_reward += basic_compensation
+                step_profit += basic_compensation
                 
-                # Step 3: validate if the VPP can deliver the traded capacity
+                # Step 3.1: simulate procurement: validate if the VPP can procure the traded capacity
+                total_procurement_possible = self._simulate_procurement(slot)
+                
+                if total_procurement_possible == False:
+                    # Penalty Calculation from "MfRRA"
+                    # NO penalty calculation from Elia PDF: "20200317 TC BSP FCRFINAL ConsultEN.pdf"
+                    # ID AEP based on: https://www.regelleistung.net/ext/static/konsultation-aep?lang=de
+                    # based on :  Preisindex orientiert sich stark am Intraday-Viertelstundenhandel: https://www.next-kraftwerke.de/wissen/ausgleichsenergie#:~:text=Der%20Ausgleichsenergiepreis%20%E2%80%93%20%22reBAP%22%20(,auf%20die%20Verursacher%20der%20Regelenergie.
+                    # Marktdaten von: https://www.smard.de/home/marktdaten?marketDataAttributes=%7B%22resolution%22:%22month%22,%22region%22:%22Amprion%22,%22from%22:1589172592929,%22to%22:1654663792928,%22moduleIds%22:%5B8004169%5D,%22selectedCategory%22:17,%22activeChart%22:true,%22style%22:%22color%22,%22categoriesModuleOrder%22:%7B%7D%7D
+                    penalty_fee_1 = self.current_daily_mean_market_price * 1.25
+                    penalty_fee_2 = self.current_daily_mean_market_price + 10.0
+                    penalty_fee_3 = self.delivery_results["slot_settlement_prices_DE"][slot]
+                    logging.debug("penalty_fee_1: " + str(penalty_fee_1))
+                    logging.debug("penalty_fee_2: " + str(penalty_fee_2))
+                    logging.debug("penalty_fee_3: " + str(penalty_fee_3))
+                    penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3] 
+                
+                    penalty_fee_procurement = self.delivery_results["total_not_procured_energy"][slot] * max(penalty_list) 
+                    logging.debug("penalty_fee_procurement = " + str(penalty_fee_procurement))
+                    step_reward -= penalty_fee_procurement
+                    step_profit -= penalty_fee_procurement  
+                else: 
+                    # give reward when capacity could be procured
+                    step_reward += 100
+                                      
+                # Step 3.2: simulate delivery: validate if the VPP can deliver the traded capacity
                 self._simulate_delivery(slot)
                 logging.debug("self.delivery_results['delivered_slots']")
                 logging.debug(self.delivery_results["delivered_slots"])
 
                 # Step 4: if the capacity can not be delivered give a high Penalty
                 if self.delivery_results["delivered_slots"][slot] == False:
-                    step_reward -= 5000
+                    penalty_fee_1 = self.current_daily_mean_market_price * 1.25
+                    penalty_fee_2 = self.current_daily_mean_market_price + 10.0
+                    penalty_fee_3 = self.delivery_results["slot_settlement_prices_DE"][slot]
+                    logging.debug("penalty_fee_1: " + str(penalty_fee_1))
+                    logging.debug("penalty_fee_2: " + str(penalty_fee_2))
+                    logging.debug("penalty_fee_3: " + str(penalty_fee_3))
+                    penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3] 
+                
+                    penalty_fee_delivery = self.delivery_results["total_not_delivered_energy"][slot] * max(penalty_list) 
+                    logging.debug("penalty_fee_delivery = " + str(penalty_fee_delivery))
+                    step_reward -= penalty_fee_delivery
+                    step_profit -= penalty_fee_delivery
+                    #step_reward -= 5000
+                else:
+                    # give reward when capacity could be delivered
+                    step_reward += 100
+
                 
                 # Update the total profit and Step Reward. 
                 self._update_profit(step_profit)
@@ -678,12 +742,8 @@ class VPPBiddingEnv(Env):
                 logging.debug("agents_bid_size: " + str(agents_bid_size))
                 logging.debug("self.delivery_results['slot_settlement_prices_DE'][slot]: " + str(self.delivery_results["slot_settlement_prices_DE"][slot]))
                 logging.debug("step_profit: " + str(step_profit))
-                logging.debug("partial step_reward : " + str(step_reward))
-                
-            logging.info("step_reward Slot " + str(slot) +" = " + str(step_reward))
-        
-    
-        
+                logging.info("step_reward Slot " + str(slot) +" = " + str(step_reward))
+                        
         # further rewards? 
         # diff to the settlement price
         # diff to the max. forecasted capacity of the VPP
@@ -697,13 +757,14 @@ class VPPBiddingEnv(Env):
         # reputation_damage = reputation_factor *  penalty_min/ 60 * size
             # penalty_min = number of minutes where capacity could not be provided
         # in total: r = compensation − penalty − reputation_damage,
-        
+        logging.info("total step_reward for all 6 slots : " + str(step_reward))
+
         return step_reward
     
     
     def _update_profit(self, step_profit):
-        
         self.total_profit += step_profit
+        logging.debug("self.total_profit = " + str(self.total_profit))
         
     
     def _update_history(self, info):
@@ -806,7 +867,6 @@ class VPPBiddingEnv(Env):
         #self.delivery_results["vpp_total_FCR"] = vpp_total_FCR
         self.delivery_results["bid_sizes_all_slots"] = [0] * 96
         
-    
 
     def _simulate_market(self, action_dict):
         
@@ -823,13 +883,14 @@ class VPPBiddingEnv(Env):
         self.delivery_results["agents_bid_sizes_round"] = [None,None,None,None,None,None]
         self.delivery_results["slots_won"] = [None,None,None,None,None,None]
 
+
         for slot in range(0, len(self.slot_date_list)):
             slot_date = self.slot_date_list[slot]
             logging.info("Current Slot Time: (D) = %s" % (slot_date)) 
             slot_bids = auction_bids[slot_date : slot_date].reset_index(drop=True).reset_index(drop=False)
-            logging.debug("slot_bids = " + str(slot_bids))
+            #logging.debug("slot_bids = " + str(slot_bids))
             slot_bids_list = slot_bids.to_dict('records')
-            logging.debug("slot_bids_list = " + str(slot_bids_list))
+            #logging.debug("slot_bids_list = " + str(slot_bids_list))
             # extract the bid size out of the agents action
             # ROUND TO FULL INTEGER
             agents_bid_size = round(action_dict["size"][slot])
@@ -926,11 +987,6 @@ class VPPBiddingEnv(Env):
             
     def _prepare_delivery(self):
         '''
-        Was macht die funktion? 
-        
-        parameter
-        
-        return
         
         '''
         
@@ -947,15 +1003,104 @@ class VPPBiddingEnv(Env):
         
         # initialize slots dict
         self.delivery_results["delivered_slots"] = {}
+        self.delivery_results["not_delivered_capacity"] = {}
         # initialize slots in dict 
         for slot in range (0,6):
             self.delivery_results["delivered_slots"][slot] = None
             
-    def _check_delivery_possible(self, agent_bid_size, vpp_total_slot):
+            
+    def _simulate_procurement(self, slot):
+        
+        logging.debug("Procurement Simulation for Slot No. " + str(slot))
+        
+        vpp_total_slot = self.delivery_results["vpp_total"][slot *16 : (slot+1)*16]
+        bid_sizes_per_slot = self.delivery_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]  
+        
+        procurement_possible_list = []
+        #not_procured_capacity_list = []
+        total_not_procured_energy = 0.
+
+        
+        for time_step in range(0, 16):
+            # for a 15 min time interval: 
+            # 1kwh/ 15min = * 4 =  4kw/15min Durchschnittsleistung
+            # 4kw/15min = * 0,25 = 1kwh/15min Energie
+            
+            # 0     = 4 MW * 0,25h = 1 MWh / 15min 
+            # 15    = 3 MW * 0,25h = 0,75 MWh / 15min 
+            # 30    = 2 MW * 0,25h = 0,5 MWh / 15min 
+            # 45    = 1 MW * 0,25h = 0,25 MWh / 15min 
+            # Summe = 2,5 MWh
+        
+            agent_bid_size = bid_sizes_per_slot[time_step] 
+            available_vpp_capacity = vpp_total_slot[time_step]
+            
+            procurement_possible = False
+            not_procured_capacity = 0
+            not_procured_counter = 0
+            not_procured_energy = 0
+            
+            # 1. check negative procurement
+            if (available_vpp_capacity - agent_bid_size) > 0:
+                logging.error("Negative procurement possible for slot " + str(slot) + "and timestep " + str(time_step))
+                procurement_possible = True
+
+            else:
+                logging.error("Negative procurement NOT possible for slot " + str(slot) + "and timestep " + str(time_step))
+                not_procured_counter += 1
+                not_procured_capacity += abs(available_vpp_capacity - agent_bid_size)
+                #not_procured_capacity_list.append(not_procured_capacity)
+                
+                not_procured_energy = not_procured_capacity * 0.25  # multiply power with time to get energy 
+                total_not_procured_energy += not_procured_energy
+
+                #not_procured_energy_list.append(not_procured_energy)
+                
+            # 2. check positive procurement
+            if agent_bid_size < available_vpp_capacity:
+                logging.error("positive procurement possible for slot " + str(slot) + "and timestep " + str(time_step))
+                procurement_possible = True
+            else:
+                # only calculate not_procured_capacity if not already calculated for negative FCR
+                if not_procured_counter != 1: 
+                    logging.error("Positive procurement NOT possible (and negative procurement not given penalty yet) for slot " + str(slot) + "and timestep " + str(time_step))
+
+                    not_procured_capacity += abs(agent_bid_size - available_vpp_capacity)
+                    #not_procured_capacity_list.append(not_procured_capacity)
+                    
+                    not_procured_energy = not_procured_capacity * 0.25  # multiply power with time to get energy 
+                    #not_procured_energy_list.append(not_procured_energy)
+                    total_not_procured_energy += not_procured_energy
+
+
+            procurement_possible_list.append(procurement_possible)
+
+        if all(procurement_possible_list): 
+            total_procurement_possible = True
+        else: 
+            total_procurement_possible = False
+        
+        #not_procured_capacity_mean = sum(not_procured_capacity_list) / len(not_procured_capacity_list)
+        logging.error("total_not_procured_energy for " + str(slot) + "and timestep " + str(time_step) + "is " + str(total_not_procured_energy))
+        self.delivery_results["total_not_procured_energy"][slot] = total_not_procured_energy
+
+        return total_procurement_possible
+
+                
+
+    def _check_delivery_possible(self, agent_bid_size, vpp_total_step):
         '''
         
         '''
-                
+        # assumption: mean delivery length: 30 Seconds 
+        # assumption: mean number of deliveries per hour: every 60 seconds = once every minute
+        # assumption: positive and negative : 50 % / 50% = per 15 minutes:  
+            #  7,5 times * 30 Seconds positive FCR 
+            #  7,5 times * 30 Seconds negative FCR 
+            
+        not_delivered_capacity = 0
+        not_delivered_energy = 0
+
         # 2. Probability of maximum Delivery Amount (74 % :  0 - 5 %  Capacity , 18 % : 5 - 10 % , 5% : 10-15% ( 97%: max 15 %)
 
         max_delivery_share = random.choices(
@@ -980,7 +1125,7 @@ class VPPBiddingEnv(Env):
 
         logging.debug("check No. 3: max_at_10_percent = " + str(max_at_10_percent))
         logging.debug("check No. 3: scale_factor = " + str(scale_factor))
-
+        
         # Plot between -max_power and max_power with .001 steps.
         #x_axis = np.arange(-max_power, max_power, 0.001)
         #plt.plot(x_axis, (norm.pdf(x_axis, mean, sd)) * scale_factor + shift_to_100)
@@ -1000,36 +1145,56 @@ class VPPBiddingEnv(Env):
          )
         delivery_possible = delivery_possible[0] # as bool is in list 
         logging.debug("check No. 3: delivery_possible : " + str(delivery_possible))
+        
         # 4. Check VPP Boundaries: In case of a very high or low operating point (nearly 100% or 0% power output of the HPP): 
         # then the delivery is not possible. 
-        
+        logging.error("Check No. 4")
         # check if probability of delivery is high and capacity could be deliverd
         if delivery_possible == True:
-            # when negative FCR :
+            # when negative FCR : 
             if capacity_to_deliver < 0:
-                if (vpp_total_slot - abs(capacity_to_deliver)) < 0:
-                    logging.error("Error, FCR is smaller than vpp_total_slot")
+                # check if capacity_to_deliver is bigger than vpp_total_step
+                if (vpp_total_step - abs(capacity_to_deliver)) < 0:
+                    logging.error("Check No. 4: Error, vpp_total_step is small and cant do more negative FCR")
+                    not_delivered_capacity += abs((vpp_total_step - abs(capacity_to_deliver)))
+                    # not_delivered_capacity = MW
+                    # 0.5/60 = 30Seconds 
+                    # multiplied = MWh
+                    # 7.5 = only for negative FCR = half of 15minutes , other half for positive FCR.  
+                    not_delivered_energy = 7.5 * (not_delivered_capacity * 0.5/60)  # multiply power with time to get energy 
+
                     delivery_possible = False
             # if positive FCR
             else:
-                # if the plant is already at maximum limit, then it cant produce more
-                if (vpp_total_slot + capacity_to_deliver) > self.maximum_possible_VPP_capacity: 
+                # positive FCR is already included in vpp_total_step, so it should be possible
+                '''# if the plant is already at maximum limit, then it cant produce more
+                if (vpp_total_step + capacity_to_deliver) > self.maximum_possible_VPP_capacity: 
                     logging.error("Error, FCR is larger than maximum_possible_VPP_capacity")
-                    delivery_possible = False
+                    not_delivered_capacity
+                    delivery_possible = False'''
                 # if the plant cant produce any power then positive FCR is also not possible
-                if capacity_to_deliver >= vpp_total_slot:
-                    logging.error("Error, FCR is larger than vpp_total_slot")
+                if capacity_to_deliver >= vpp_total_step:
+                    logging.error("Check No. 4: Error, FCR is larger than vpp_total_step")
+                    not_delivered_capacity += capacity_to_deliver - vpp_total_step
+                    logging.error("Check No. 4: not_delivered_capacity = " + str(not_delivered_capacity))
+                    # not_delivered_capacity = MW
+                    # 0.5/60 = 30Seconds 
+                    # multiplied = MWh
+                    # 7.5 = only for positive FCR = half of 15minutes , other half for negative FCR.  
+                    not_delivered_energy = 7.5 * (not_delivered_capacity * 0.5/60)  # multiply power with time to get energy 
+
                     delivery_possible = False
                     
-        logging.debug("check No. 4: delivery_possible : " + str(delivery_possible))
-        return delivery_possible
+        logging.debug("check No. 4: delivery_possible : " + str(delivery_possible))   
+         
+        return delivery_possible, not_delivered_energy
     
 
     def _simulate_delivery(self, slot): 
+                
         logging.debug("Delivery Simulation for Slot No. " + str(slot))
         
         vpp_total_slot = self.delivery_results["vpp_total"][slot *16 : (slot+1)*16]
-        #vpp_total_FCR_slot = self.delivery_results["vpp_total_FCR"][slot *16 : (slot+1)*16]
         bid_sizes_per_slot = self.delivery_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]
         
         #logging.debug("vpp_total_FCR_slot " + str(vpp_total_FCR_slot))
@@ -1037,7 +1202,9 @@ class VPPBiddingEnv(Env):
         logging.debug("bid_sizes_per_slot " + str(bid_sizes_per_slot))
 
         delivery_possible = None
-        delivery_possible_list = []
+        positive_delivery_possible_list = []
+        negative_delivery_possible_list = []
+        total_not_delivered_energy = 0.
 
         # check for every timestep
         for time_step in range(0, 16):
@@ -1049,18 +1216,24 @@ class VPPBiddingEnv(Env):
 
             # check if positive FCR could be provided 
             logging.debug("check positive FCR")
-            delivery_possible = self._check_delivery_possible(agent_bid_size, vpp_total_slot[time_step])
-            delivery_possible_list.append(delivery_possible)
+            delivery_possible, not_delivered_energy = self._check_delivery_possible(agent_bid_size, vpp_total_slot[time_step])
+            positive_delivery_possible_list.append(delivery_possible)
+            if delivery_possible == False:
+                    total_not_delivered_energy += not_delivered_energy
+
             # check if negative FCR could be provided 
             logging.debug("check negative FCR")
-            delivery_possible = self._check_delivery_possible(-agent_bid_size, vpp_total_slot[time_step])
-            delivery_possible_list.append(delivery_possible)
+            delivery_possible, not_delivered_energy = self._check_delivery_possible(-agent_bid_size, vpp_total_slot[time_step])
+            negative_delivery_possible_list.append(delivery_possible)
+            if delivery_possible == False:
+                total_not_delivered_energy += not_delivered_energy
 
-        if all(delivery_possible_list): 
+        if all(positive_delivery_possible_list) and all(negative_delivery_possible_list): 
             total_delivery_possible = True 
         else: 
-            total_delivery_possible = False 
+            total_delivery_possible = False
             
         logging.debug("total_delivery_possible for slot " + str(slot) + " : " + str(total_delivery_possible))
         self.delivery_results["delivered_slots"][slot] = total_delivery_possible
+        self.delivery_results["total_not_delivered_energy"][slot] = total_not_delivered_energy
            

@@ -6,7 +6,9 @@
             "market_results": "data/clean/market_results.csv",
             "bids": "data/clean/bids_all.csv",
             "time_features" : "data/clean/time_features.csv",
-            "test_set" : "data/clean/test_set.csv"
+            "test_set" : "data/clean/test_set.csv",
+            "market_prices" : "data/clean/market_prices.csv"
+
         },
         "time": {
             "hist_window_size" : 1,  
