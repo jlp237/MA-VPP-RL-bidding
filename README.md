@@ -15,5 +15,6 @@ In your console:
 5. ```source venv/bin/activate```    to enter the virtual environment
 6. ```pip3 install -r requirements.txt``` to install the requirements in the current environment
 7. ```jupyter lab```
-8. Wait for jupyter to start and open "Basic_Env.ipynb"
+8. Wait for jupyter to start and open "02_VPPBiddingEnv.ipynb"
 9. Run Notebook (Weights and Biases Visualisation may not be shown)
+10. Code for the environment definition is in https://github.com/jlp-ue/MA-VPP-RL-bidding/blob/main/vpp-gym/vpp_gym/envs/vpp_env.py
