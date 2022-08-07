@@ -1,0 +1,47 @@
+\chapter{Implementation}
+
+... should include the following:
+\begin{itemize}
+\item research methodology (e.g., prototype and experiments, case study, literature survey, theoretical analysis),
+\item derivations and descriptions of algorithms, hardware, software, and/or systems developed.
+\end{itemize}
+\begin{comment} 
+\begin{algorithm}
+\SetAlgoLined
+\KwResult{Write here the result }
+ initialization\;
+ \While{While condition}{
+  instructions\;
+  \eIf{condition}{
+    instructions1\;
+    instructions2\;
+    }{
+    instructions3\;
+    }
+    }
+ \caption{An Example Algorithm}
+ %\label{alg:algorithm1}
+\end{algorithm}
+\end{comment} 
+
+
+\begin{algorithm}
+\SetAlgoLined
+\SetKwInOut{Parameter}{Parameters}
+\Parameter{\\e : Tuple to be inserted.\\
+te (e) : Event-time of e. }
+ S ← slice that covers te (e);\\
+  \eIf{S starts at te (e)}{
+    //Slice before S must be fixed.\\
+    change the type of the slice before S to combined;\\
+    add e to S;\\
+    }{
+    // S does not start at te (e).\\
+    change tend (S) to te (e) (excluding te (e) from S);\\
+ change type of S to flexible;\\
+add slice in [te (e), former tend (S)] with former type of S.\\
+add e to the new slice.\\
+    }
+ \caption{Splitting a Session\cite{TraubGCBKRM20}.}
+ %\label{alg:algorithm1}
+\end{algorithm}

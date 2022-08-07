@@ -1,0 +1,38 @@
+\chapter{State of the Art\label{cha:sota}}
+... should include the following:
+\begin{itemize}
+
+\item state-of-the-art solutions to the problem,
+\item related work and a differentiation of your contributions to the related work.
+
+\end{itemize}
+
+
+%%\lstset{frame=tb,framerule=1pt,keywordstyle=\color{blue}}
+%%\begin{comment} 
+%%\begin{lstlisting}[ language=SQL,caption= An Example Code Fragment]
+%%SELECT 
+%%    attribute 
+%%FROM 
+%%    table
+%%WHERE 
+%%    attribute = 'value';
+%%    
+%%\end{lstlisting}
+%%\end{comment} 
+%%\begin{lstlisting}[ language=Emma,caption= Bounce rate program using nested bags and nested parallel operations\cite{Parallelism}.]
+%%val visits: Bag[(Date, IP)] = readFile(...)
+%%val visitsPerDay: Bag[(Date, Bag[IP])] = 
+%%    visits.groupByKey()
+%%visitsPerDay.map{
+%%    (day: Date, group: Bag[IP]) =>
+%%val countsPerIP = group.map((_, 1)).reduceByKey(_+_)
+%%val numBounces = countsPerIP.filter(_._2 == 1).count()
+%%val numTotalVisitors = group.distinct().count()
+%%val bounceRate =
+%%numBounces / numTotalVisitors
+%%return bounceRate
+%%}
+
+    
+%%\end{lstlisting}
