@@ -1,2 +1,2 @@
 from .vpp_env import VPPBiddingEnv
-from .vpp_GoalEnv import VPPBiddingGoalEnv
+#from .vpp_GoalEnv import VPPBiddingGoalEnv

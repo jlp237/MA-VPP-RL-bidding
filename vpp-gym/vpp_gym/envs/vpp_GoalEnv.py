@@ -25,7 +25,7 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 
 # RL
-from gym import GoalEnv
+#from gym import GoalEnv
 from gym import make
 from gym.spaces import Discrete, Box, Dict, Tuple, MultiDiscrete, MultiBinary
 from gym.spaces import flatdim, flatten_space, unflatten, flatten

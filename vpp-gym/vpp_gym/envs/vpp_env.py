@@ -38,7 +38,8 @@ class VPPBiddingEnv(Env):
     def __init__(self,
                  config_path,
                  log_level, 
-                 env_type, 
+                 env_type,
+                 render_mode="human"
                 ):
         
         logger = logging.getLogger()
@@ -64,7 +65,6 @@ class VPPBiddingEnv(Env):
         logging.info("log level = info")
         logging.warning("log level = warning")
         
-
         # data 
         self.config = self._load_config(config_path)
             
@@ -342,7 +342,7 @@ class VPPBiddingEnv(Env):
     
     
     
-    def reset(self):
+    def reset(self, seed=None, return_info=False, options=None):
         
         if self.initial is False:
             
@@ -594,13 +594,14 @@ class VPPBiddingEnv(Env):
         self._prepare_delivery()
         
         # calculate reward from state and action 
-        step_reward = self._calculate_reward()
+        step_reward, step_profit = self._calculate_reward()
         
         self.total_reward += step_reward
             
         info = dict(
             bid_submission_time = str(self.bid_submission_time),
             step_reward = round(step_reward,2),
+            step_profit = round(step_profit,2),
             total_reward = round(self.total_reward,2),
             total_profit = round(self.total_profit,2)
         )
@@ -619,7 +620,8 @@ class VPPBiddingEnv(Env):
                     "global_step": self.logging_step,
                     "total_reward": self.total_reward,
                     "total_profit": self.total_profit,
-                    "step_reward": step_reward},
+                    "step_reward": step_reward,
+                    "step_profit": step_profit},
                     #step=self.logging_step,
                     commit=False)
                 
@@ -630,7 +632,8 @@ class VPPBiddingEnv(Env):
                     "global_step": self.logging_step,
                     "total_reward": self.total_reward,
                     "total_profit": self.total_profit,
-                    "step_reward": step_reward},
+                    "step_reward": step_reward,
+                    "step_profit": step_profit},
                     #step=self.logging_step,
                     commit=False
                 )
@@ -663,7 +666,7 @@ class VPPBiddingEnv(Env):
             
             if self.delivery_results["slots_won"][slot] == 0:
                 logging.debug("slot no " + str(slot) + " was lost")
-                step_reward -= 100
+                step_reward -= 1000
 
             if self.delivery_results["slots_won"][slot] == 1:
                 logging.debug("slot no. " + str(slot)+  " was won")
@@ -673,7 +676,7 @@ class VPPBiddingEnv(Env):
                 # we try Approach 1 
     
                 # Step 1: award the agent for a won slot
-                step_reward += 100
+                step_reward += 1000
                 
                 # Step 2: Calculate the Profit of the bid if won 
                 
@@ -759,7 +762,7 @@ class VPPBiddingEnv(Env):
         # in total: r = compensation − penalty − reputation_damage,
         logging.info("total step_reward for all 6 slots : " + str(step_reward))
 
-        return step_reward
+        return step_reward, step_profit
     
     
     def _update_profit(self, step_profit):
@@ -775,7 +778,7 @@ class VPPBiddingEnv(Env):
             self.history[key].append(value)
 
             
-    def render(self, mode="human"):
+    def render(self):
         if not self.delivery_results:
             logging.debug("self.delivery_results is empty, not plotting it ")
         else:
