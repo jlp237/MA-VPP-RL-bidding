@@ -676,7 +676,7 @@ class VPPBiddingEnv(Env):
                 # we try Approach 1 
     
                 # Step 1: award the agent for a won slot
-                step_reward += 1000
+                step_reward += 10000
                 
                 # Step 2: Calculate the Profit of the bid if won 
                 
@@ -711,7 +711,7 @@ class VPPBiddingEnv(Env):
                     step_profit -= penalty_fee_procurement  
                 else: 
                     # give reward when capacity could be procured
-                    step_reward += 100
+                    step_reward += 1000
                                       
                 # Step 3.2: simulate delivery: validate if the VPP can deliver the traded capacity
                 self._simulate_delivery(slot)
@@ -735,7 +735,7 @@ class VPPBiddingEnv(Env):
                     #step_reward -= 5000
                 else:
                     # give reward when capacity could be delivered
-                    step_reward += 100
+                    step_reward += 1000
 
                 
                 # Update the total profit and Step Reward. 

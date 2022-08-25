@@ -6,7 +6,6 @@
  chapter = {Abstracts},
  year={2011},
  } 
-
  
  @inbook{wallwork_306,
  pages={306},
@@ -15,7 +14,6 @@
  author={Wallwork, Adrian}, 
  year={2011},
  } 
-
 @inproceedings{GevayRBMQM21,
 Title = {Efficient Control Flow in Dataflow Systems: When Ease-of-Use Meets High Performance},
 Author = {Gábor E. Gévay and Tilmann Rabl and Sebastian Breß and Loránd Madai-Tahy and Jorge-Arnulfo Quiané-Ruiz and Volker Markl},
@@ -68,7 +66,7 @@ Journal = {EDBT},
 Url2 = {https://openproceedings.org/2021/conf/edbt/p226.pdf}
 }
 
-@Comment{jabref-meta: databaseType:bibtex;}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % For more information, see:                                                   %
