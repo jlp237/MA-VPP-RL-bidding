@@ -133,8 +133,8 @@ class VPPBiddingEnv(Env):
         #self.slots_won = [0, 0, 0, 0, 0, 0]
         #self.slot_settlement_prices_DE = [0., 0., 0., 0., 0., 0.]
         
-        self.delivery_results = {}
-        self.previous_delivery_results  = {}
+        self.activation_results = {}
+        self.previous_activation_results  = {}
         
         self.logging_step = -1
                         
@@ -393,16 +393,16 @@ class VPPBiddingEnv(Env):
         self.total_slot_FCR_demand = self.tenders_df[str(self.slot_start):]["total"][0] 
         self.done = False
 
-        self.previous_delivery_results = self.delivery_results.copy()
-        logging.debug("self.delivery_results = " + str(self.delivery_results))
-        self.delivery_results.clear()
-        logging.debug("self.delivery_results after clearing")
-        logging.debug("self.delivery_results = " + str(self.delivery_results))
-        logging.debug("self.previous_delivery_results after clearing")
-        logging.debug("self.previous_delivery_results = " + str(self.previous_delivery_results))
+        self.previous_activation_results = self.activation_results.copy()
+        logging.debug("self.activation_results = " + str(self.activation_results))
+        self.activation_results.clear()
+        logging.debug("self.activation_results after clearing")
+        logging.debug("self.activation_results = " + str(self.activation_results))
+        logging.debug("self.previous_activation_results after clearing")
+        logging.debug("self.previous_activation_results = " + str(self.previous_activation_results))
         
-        self.delivery_results["slots_won"] = [0, 0, 0, 0, 0, 0]
-        self.delivery_results["slot_settlement_prices_DE"] = [0., 0., 0., 0., 0., 0.]
+        self.activation_results["slots_won"] = [0, 0, 0, 0, 0, 0]
+        self.activation_results["slot_settlement_prices_DE"] = [0., 0., 0., 0., 0., 0.]
         
         # reset for each episode 
         self._get_new_timestamps()
@@ -468,8 +468,8 @@ class VPPBiddingEnv(Env):
             print("done = " + str(self.done))
             print("initial = " + str(self.initial))
             
-            self.observation["slots_won"] = np.array(self.delivery_results["slots_won"], dtype=np.int32)
-            self.observation["slot_settlement_prices_DE"] = np.array(self.delivery_results["slot_settlement_prices_DE"], dtype=np.float32)
+            self.observation["slots_won"] = np.array(self.activation_results["slots_won"], dtype=np.int32)
+            self.observation["slot_settlement_prices_DE"] = np.array(self.activation_results["slot_settlement_prices_DE"], dtype=np.float32)
             
             
         if (self.done is True) or (self.initial is True):
@@ -537,11 +537,11 @@ class VPPBiddingEnv(Env):
         priorHoliday_norm = self.bool_scaler.transform(np.array(priorHoliday).reshape(-1, 1))
         priorHoliday_norm = priorHoliday_norm.flatten().astype('float32')
         
-        slots_won =  np.array(self.delivery_results["slots_won"], dtype=np.int32)
+        slots_won =  np.array(self.activation_results["slots_won"], dtype=np.int32)
         slots_won_norm = self.bool_scaler.transform(np.array(slots_won).reshape(-1, 1))
         slots_won_norm = slots_won_norm.flatten().astype('float32')
         
-        slot_settlement_prices_DE = np.array(self.delivery_results["slot_settlement_prices_DE"], dtype=np.float32)
+        slot_settlement_prices_DE = np.array(self.activation_results["slot_settlement_prices_DE"], dtype=np.float32)
         slot_settlement_prices_DE_norm = self.slot_settlement_prices_DE_scaler.transform((slot_settlement_prices_DE.reshape(-1, 1)))
         #slot_settlement_prices_DE_norm = [x for xs in list(slot_settlement_prices_DE_norm) for x in xs]
         slot_settlement_prices_DE_norm = slot_settlement_prices_DE_norm.flatten().astype('float32')
@@ -590,8 +590,8 @@ class VPPBiddingEnv(Env):
         # take the bid out of the action of the agent and resimulate the market clearing algorithm
         self._simulate_market(action_dict)
         
-        # Prepare the data for the delivery simulation and reward calculation
-        self._prepare_delivery()
+        # Prepare the data for the activation simulation and reward calculation
+        self._prepare_activation()
         
         # calculate reward from state and action 
         step_reward, step_profit = self._calculate_reward()
@@ -646,8 +646,8 @@ class VPPBiddingEnv(Env):
         # did the agent win the auction? 
         # what was the revenue ?
         
-        self.delivery_results["total_not_procured_energy"] = [0, 0, 0, 0, 0, 0]
-        self.delivery_results["total_not_delivered_energy"] = [0, 0, 0, 0, 0, 0]
+        self.activation_results["total_not_reserved_energy"] = [0, 0, 0, 0, 0, 0]
+        self.activation_results["total_not_delivered_energy"] = [0, 0, 0, 0, 0, 0]
 
         step_reward = 0
         step_profit = 0
@@ -657,22 +657,22 @@ class VPPBiddingEnv(Env):
         # per slot lost: -100
 
         logging.info("Reward Overview:")
-        logging.debug("self.delivery_results['slots_won']: " + str(self.delivery_results["slots_won"]))
-        logging.debug("len(self.delivery_results['slots_won']) : "  + str(len(self.delivery_results["slots_won"])))       
+        logging.debug("self.activation_results['slots_won']: " + str(self.activation_results["slots_won"]))
+        logging.debug("len(self.activation_results['slots_won']) : "  + str(len(self.activation_results["slots_won"])))       
         
-        for slot in range(0, len(self.delivery_results["slots_won"])):
+        for slot in range(0, len(self.activation_results["slots_won"])):
             
             logging.debug("slot no. " + str(slot))
             
-            if self.delivery_results["slots_won"][slot] == 0:
+            if self.activation_results["slots_won"][slot] == 0:
                 logging.debug("slot no " + str(slot) + " was lost")
                 step_reward -= 1000
 
-            if self.delivery_results["slots_won"][slot] == 1:
+            if self.activation_results["slots_won"][slot] == 1:
                 logging.debug("slot no. " + str(slot)+  " was won")
 
-                # Approach 1 : first reward the won slot, then check if it could be delivered and give huge negative reward (-1000)
-                # Approach 2 : first check if won slot could be delivered and then calculate partial reward (60 minutes - penalty minutes / 60 ) * price * size 
+                # Approach 1 : first reward the won slot, then check if it could be activated and give huge negative reward (-1000)
+                # Approach 2 : first check if won slot could be activated and then calculate partial reward (60 minutes - penalty minutes / 60 ) * price * size 
                 # we try Approach 1 
     
                 # Step 1: award the agent for a won slot
@@ -681,17 +681,17 @@ class VPPBiddingEnv(Env):
                 # Step 2: Calculate the Profit of the bid if won 
                 
                 # extract the bid size of the agent 
-                agents_bid_size = self.delivery_results["agents_bid_sizes_round"][slot]
+                agents_bid_size = self.activation_results["agents_bid_sizes_round"][slot]
                 # and calculate the reward by multiplying the bid size with the settlement price of the slot
-                basic_compensation = (agents_bid_size * self.delivery_results["slot_settlement_prices_DE"][slot])
+                basic_compensation = (agents_bid_size * self.activation_results["slot_settlement_prices_DE"][slot])
                 logging.debug("basic_compensation: " + str(basic_compensation))
                 step_reward += basic_compensation
                 step_profit += basic_compensation
                 
-                # Step 3.1: simulate procurement: validate if the VPP can procure the traded capacity
-                total_procurement_possible = self._simulate_procurement(slot)
+                # Step 3.1: simulate reservation: validate if the VPP can reserve the traded capacity
+                total_reservation_possible = self._simulate_reservation(slot)
                 
-                if total_procurement_possible == False:
+                if total_reservation_possible == False:
                     # Penalty Calculation from "MfRRA"
                     # NO penalty calculation from Elia PDF: "20200317 TC BSP FCRFINAL ConsultEN.pdf"
                     # ID AEP based on: https://www.regelleistung.net/ext/static/konsultation-aep?lang=de
@@ -699,43 +699,43 @@ class VPPBiddingEnv(Env):
                     # Marktdaten von: https://www.smard.de/home/marktdaten?marketDataAttributes=%7B%22resolution%22:%22month%22,%22region%22:%22Amprion%22,%22from%22:1589172592929,%22to%22:1654663792928,%22moduleIds%22:%5B8004169%5D,%22selectedCategory%22:17,%22activeChart%22:true,%22style%22:%22color%22,%22categoriesModuleOrder%22:%7B%7D%7D
                     penalty_fee_1 = self.current_daily_mean_market_price * 1.25
                     penalty_fee_2 = self.current_daily_mean_market_price + 10.0
-                    penalty_fee_3 = self.delivery_results["slot_settlement_prices_DE"][slot]
+                    penalty_fee_3 = self.activation_results["slot_settlement_prices_DE"][slot]
                     logging.debug("penalty_fee_1: " + str(penalty_fee_1))
                     logging.debug("penalty_fee_2: " + str(penalty_fee_2))
                     logging.debug("penalty_fee_3: " + str(penalty_fee_3))
                     penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3] 
                 
-                    penalty_fee_procurement = self.delivery_results["total_not_procured_energy"][slot] * max(penalty_list) 
-                    logging.debug("penalty_fee_procurement = " + str(penalty_fee_procurement))
-                    step_reward -= penalty_fee_procurement
-                    step_profit -= penalty_fee_procurement  
+                    penalty_fee_reservation = self.activation_results["total_not_reserved_energy"][slot] * max(penalty_list) 
+                    logging.debug("penalty_fee_reservation = " + str(penalty_fee_reservation))
+                    step_reward -= penalty_fee_reservation
+                    step_profit -= penalty_fee_reservation  
                 else: 
-                    # give reward when capacity could be procured
-                    step_reward += 1000
+                    # give reward when capacity could be reserved
+                    step_reward += 10000
                                       
-                # Step 3.2: simulate delivery: validate if the VPP can deliver the traded capacity
-                self._simulate_delivery(slot)
-                logging.debug("self.delivery_results['delivered_slots']")
-                logging.debug(self.delivery_results["delivered_slots"])
+                # Step 3.2: simulate activation: validate if the VPP can deliver the traded capacity
+                self._simulate_activation(slot)
+                logging.debug("self.activation_results['delivered_slots']")
+                logging.debug(self.activation_results["delivered_slots"])
 
                 # Step 4: if the capacity can not be delivered give a high Penalty
-                if self.delivery_results["delivered_slots"][slot] == False:
+                if self.activation_results["delivered_slots"][slot] == False:
                     penalty_fee_1 = self.current_daily_mean_market_price * 1.25
                     penalty_fee_2 = self.current_daily_mean_market_price + 10.0
-                    penalty_fee_3 = self.delivery_results["slot_settlement_prices_DE"][slot]
+                    penalty_fee_3 = self.activation_results["slot_settlement_prices_DE"][slot]
                     logging.debug("penalty_fee_1: " + str(penalty_fee_1))
                     logging.debug("penalty_fee_2: " + str(penalty_fee_2))
                     logging.debug("penalty_fee_3: " + str(penalty_fee_3))
                     penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3] 
                 
-                    penalty_fee_delivery = self.delivery_results["total_not_delivered_energy"][slot] * max(penalty_list) 
-                    logging.debug("penalty_fee_delivery = " + str(penalty_fee_delivery))
-                    step_reward -= penalty_fee_delivery
-                    step_profit -= penalty_fee_delivery
+                    penalty_fee_activation = self.activation_results["total_not_delivered_energy"][slot] * max(penalty_list) 
+                    logging.debug("penalty_fee_activation = " + str(penalty_fee_activation))
+                    step_reward -= penalty_fee_activation
+                    step_profit -= penalty_fee_activation
                     #step_reward -= 5000
                 else:
-                    # give reward when capacity could be delivered
-                    step_reward += 1000
+                    # give reward when capacity could be activated
+                    step_reward += 10000
 
                 
                 # Update the total profit and Step Reward. 
@@ -743,7 +743,7 @@ class VPPBiddingEnv(Env):
                 step_reward +=  step_profit
                 
                 logging.debug("agents_bid_size: " + str(agents_bid_size))
-                logging.debug("self.delivery_results['slot_settlement_prices_DE'][slot]: " + str(self.delivery_results["slot_settlement_prices_DE"][slot]))
+                logging.debug("self.activation_results['slot_settlement_prices_DE'][slot]: " + str(self.activation_results["slot_settlement_prices_DE"][slot]))
                 logging.debug("step_profit: " + str(step_profit))
                 logging.info("step_reward Slot " + str(slot) +" = " + str(step_reward))
                         
@@ -779,18 +779,18 @@ class VPPBiddingEnv(Env):
 
             
     def render(self):
-        if not self.delivery_results:
-            logging.debug("self.delivery_results is empty, not plotting it ")
+        if not self.activation_results:
+            logging.debug("self.activation_results is empty, not plotting it ")
         else:
             # only plot to wandb when not in test mode
             if self.env_type != "test":
                 if self.logging_step > 0: 
                     logging.debug(" now in render()")        
-                    logging.debug(" self.previous_delivery_results " + str(self.previous_delivery_results))      
-                    logging.debug(" self.delivery_results['slots_won'] " + str(self.delivery_results["slots_won"]))      
+                    logging.debug(" self.previous_activation_results " + str(self.previous_activation_results))      
+                    logging.debug(" self.activation_results['slots_won'] " + str(self.activation_results["slots_won"]))      
 
                     # Render Won / Lost Slots 
-                    slots_won = self.previous_delivery_results["slots_won"]
+                    slots_won = self.previous_activation_results["slots_won"]
                     logging.debug(" slots_won " + str(slots_won))      
                     slots_lost = [None,None,None,None,None,None]
                     for x in range(len(slots_won)):
@@ -804,16 +804,16 @@ class VPPBiddingEnv(Env):
                     logging.debug(" slots_df " + str(slots_df))
                     slots_won_plot = px.bar(slots_df,  x= slots_df.index, y=['Slot Won', 'Slot Lost'], color_discrete_sequence=[ "green", "gainsboro"] )
 
-                    # Render Delivery for Capacity 
-                    delivery_plot = go.Figure()
-                    delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["vpp_total"], fill='tozeroy', fillcolor='rgba(0, 85, 255, 0.4)',  line_color="blue", name="VPP Cap."))
-                    #delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["vpp_total_FCR"], fill='tozeroy', line_color="green", name="VPP FCR Cap." )) 
-                    delivery_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_delivery_results["bid_sizes_all_slots"], fill='tozeroy', fillcolor='rgba(255, 0, 0, 0.5)', line_color="red", name="Agents Bid" )) 
+                    # Render activation for Capacity 
+                    activation_plot = go.Figure()
+                    activation_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_activation_results["vpp_total"], fill='tozeroy', fillcolor='rgba(0, 85, 255, 0.4)',  line_color="blue", name="VPP Cap."))
+                    #activation_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_activation_results["vpp_total_FCR"], fill='tozeroy', line_color="green", name="VPP FCR Cap." )) 
+                    activation_plot.add_trace(go.Scatter(x=list(range(1, 97)), y=self.previous_activation_results["bid_sizes_all_slots"], fill='tozeroy', fillcolor='rgba(255, 0, 0, 0.5)', line_color="red", name="Agents Bid" )) 
 
-                    # Render Delivery for each Slot 
+                    # Render activation for each Slot 
                     slots_delivered = [None,None,None,None,None,None]
                     for slot in range(6):
-                        if self.previous_delivery_results["delivered_slots"][slot] == True:
+                        if self.previous_activation_results["delivered_slots"][slot] == True:
                             slots_delivered[slot] = 1
                         else: 
                             slots_delivered[slot] = 0
@@ -833,8 +833,8 @@ class VPPBiddingEnv(Env):
                     # Render Agents Slot Prices and Settlement Prices 
 
                     price_plot = go.Figure()
-                    price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_delivery_results["slot_settlement_prices_DE"], line_color="blue", name="Market Price"))
-                    price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_delivery_results["agents_bid_prices"] , line_color="red", name="Agents Price" )) 
+                    price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_activation_results["slot_settlement_prices_DE"], line_color="blue", name="Market Price"))
+                    price_plot.add_trace(go.Scatter(x=list(range(1,7)), y=self.previous_activation_results["agents_bid_prices"] , line_color="red", name="Agents Price" )) 
 
 
                     if self.env_type != "test":
@@ -842,7 +842,7 @@ class VPPBiddingEnv(Env):
                         if self.env_type == "training":
                             wandb.log({
                                 "Won / Loss of Slots": slots_won_plot,
-                                "Sold and Available Capacity" : delivery_plot,
+                                "Sold and Available Capacity" : activation_plot,
                                 "Agents and Settlement Prices per Slot" : price_plot,
                                 "Delivery per Slot": slots_delivered_plot},
                                 #step=self.logging_step,
@@ -853,7 +853,7 @@ class VPPBiddingEnv(Env):
                             wandb.log({
                                 "global_step": self.logging_step,
                                 "Won / Loss of Slots": slots_won_plot,
-                                "Sold and Available Capacity" : delivery_plot,
+                                "Sold and Available Capacity" : activation_plot,
                                 "Agents and Settlement Prices per Slot" : price_plot,
                                 "Delivery per Slot": slots_delivered_plot},
                                 step=self.logging_step,
@@ -866,9 +866,9 @@ class VPPBiddingEnv(Env):
         vpp_total = self.asset_data_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
         #vpp_total_FCR = self.asset_data_FCR_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
         
-        self.delivery_results["vpp_total"] = vpp_total
-        #self.delivery_results["vpp_total_FCR"] = vpp_total_FCR
-        self.delivery_results["bid_sizes_all_slots"] = [0] * 96
+        self.activation_results["vpp_total"] = vpp_total
+        #self.activation_results["vpp_total_FCR"] = vpp_total_FCR
+        self.activation_results["bid_sizes_all_slots"] = [0] * 96
         
 
     def _simulate_market(self, action_dict):
@@ -882,9 +882,9 @@ class VPPBiddingEnv(Env):
         logging.info("Historic Data Window: from %s to %s " % (self.historic_data_start, self.historic_data_end))
         logging.info("Forecast Data Window: from %s to %s " % (self.forecast_start, self.forecast_end))
 
-        self.delivery_results["agents_bid_prices"] = [None,None,None,None,None,None]
-        self.delivery_results["agents_bid_sizes_round"] = [None,None,None,None,None,None]
-        self.delivery_results["slots_won"] = [None,None,None,None,None,None]
+        self.activation_results["agents_bid_prices"] = [None,None,None,None,None,None]
+        self.activation_results["agents_bid_sizes_round"] = [None,None,None,None,None,None]
+        self.activation_results["slots_won"] = [None,None,None,None,None,None]
 
 
         for slot in range(0, len(self.slot_date_list)):
@@ -897,26 +897,26 @@ class VPPBiddingEnv(Env):
             # extract the bid size out of the agents action
             # ROUND TO FULL INTEGER
             agents_bid_size = round(action_dict["size"][slot])
-            self.delivery_results["agents_bid_sizes_round"][slot] = agents_bid_size
+            self.activation_results["agents_bid_sizes_round"][slot] = agents_bid_size
             # extract the bid price out of the agents action
             agents_bid_price = action_dict["price"][slot]
-            # TODO: add to delivery results
-            self.delivery_results["agents_bid_prices"][slot] = agents_bid_price
+            # TODO: add to activation results
+            self.activation_results["agents_bid_prices"][slot] = agents_bid_price
             logging.info("agents_bid_size = %s" % (agents_bid_size))
             logging.info("agents_bid_price = %s" % (agents_bid_price))            
             # get settlement price
             settlement_price_DE = [bid['settlement_price'] for bid in slot_bids_list if bid['country']== "DE"][0] 
             logging.info( "settlement_price_DE : " + str(settlement_price_DE))
-            self.delivery_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
+            self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
 
             
             # First check if agents bid price is higher than the settlement price of Germany 
             # OR if agents bid size is 0 
             if (agents_bid_price > settlement_price_DE) or (agents_bid_size == 0):
                 # if it is higher, the slot is lost. 
-                self.delivery_results["slots_won"][slot] = 0
+                self.activation_results["slots_won"][slot] = 0
                 # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
-                #self.delivery_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
+                #self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
             else: 
                 # If agents bid price is lower than settlement price (bid could be in awarded bids)
                 # get CBMP of countries without LMP
@@ -950,11 +950,11 @@ class VPPBiddingEnv(Env):
                 if agents_bid_size >= slot_bids_filtered_size_sum:
                     logging.debug("unrealistic bid size")
                     # set auction won to false
-                    self.delivery_results["slots_won"][slot] = 0
+                    self.activation_results["slots_won"][slot] = 0
                     # set settlement price to zero as it is an unrealistic auction
-                    ##self.delivery_results["slot_settlement_prices_DE"][slot] = 0
+                    ##self.activation_results["slot_settlement_prices_DE"][slot] = 0
                     # i would rather set the old settlement_price_DE as the market price instead of blank 0. 
-                    self.delivery_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
+                    self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
                 else:
                     for bid in range(0, len(slot_bids_filtered)): 
                         logging.debug("bid size = " + str(slot_bids_filtered[-(bid+1)]["size"]))
@@ -970,9 +970,9 @@ class VPPBiddingEnv(Env):
                                 new_settlement_price_DE = slot_bids_filtered[-(bid+1)]["price"]
                                 logging.info("new_settlement_price_DE = " + str( new_settlement_price_DE))
                                 # set boolean for auction win
-                                self.delivery_results["slots_won"][slot] = 1
+                                self.activation_results["slots_won"][slot] = 1
                                 # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
-                                self.delivery_results["slot_settlement_prices_DE"][slot] = new_settlement_price_DE
+                                self.activation_results["slot_settlement_prices_DE"][slot] = new_settlement_price_DE
                                 break
                             else:
                                 logging.debug("bid is INDIVISIBLE, so move one bids further is new settlement price")
@@ -980,15 +980,15 @@ class VPPBiddingEnv(Env):
                                 continue
                         
 
-            logging.info("self.delivery_results['slots_won'] = ")
-            logging.info("\n".join("slot won: \t{}".format(k) for k in self.delivery_results["slots_won"]))
+            logging.info("self.activation_results['slots_won'] = ")
+            logging.info("\n".join("slot won: \t{}".format(k) for k in self.activation_results["slots_won"]))
             logging.info("     agents bid_size = ")
             logging.info("\n".join("size: \t{}".format(round(k) )for k in action_dict["size"]))            
-            logging.info("self.delivery_results['slot_settlement_prices_DE'] = ")
-            logging.info("\n".join("price: \t{}".format(k) for k in self.delivery_results["slot_settlement_prices_DE"]))
+            logging.info("self.activation_results['slot_settlement_prices_DE'] = ")
+            logging.info("\n".join("price: \t{}".format(k) for k in self.activation_results["slot_settlement_prices_DE"]))
             
             
-    def _prepare_delivery(self):
+    def _prepare_activation(self):
         '''
         
         '''
@@ -998,30 +998,30 @@ class VPPBiddingEnv(Env):
         for slot_x in range (0,6): 
             for time_step in range(0,16):
                 #bid_sizes_list.append(action_dict["size"][slot_x])
-                bid_sizes_list.append(self.delivery_results["agents_bid_sizes_round"][slot_x])
+                bid_sizes_list.append(self.activation_results["agents_bid_sizes_round"][slot_x])
         bid_sizes_all_slots = np.array(bid_sizes_list)
-        self.delivery_results["agents_bid_sizes_round_all_slots"] = bid_sizes_all_slots
-        self.delivery_results["bid_sizes_all_slots"] = bid_sizes_all_slots
-        logging.debug("self.delivery_results['bid_sizes_all_slots'] : "  + str(self.delivery_results['bid_sizes_all_slots']))
+        self.activation_results["agents_bid_sizes_round_all_slots"] = bid_sizes_all_slots
+        self.activation_results["bid_sizes_all_slots"] = bid_sizes_all_slots
+        logging.debug("self.activation_results['bid_sizes_all_slots'] : "  + str(self.activation_results['bid_sizes_all_slots']))
         
         # initialize slots dict
-        self.delivery_results["delivered_slots"] = {}
-        self.delivery_results["not_delivered_capacity"] = {}
+        self.activation_results["delivered_slots"] = {}
+        self.activation_results["not_delivered_capacity"] = {}
         # initialize slots in dict 
         for slot in range (0,6):
-            self.delivery_results["delivered_slots"][slot] = None
+            self.activation_results["delivered_slots"][slot] = None
             
             
-    def _simulate_procurement(self, slot):
+    def _simulate_reservation(self, slot):
         
-        logging.debug("Procurement Simulation for Slot No. " + str(slot))
+        logging.debug("reservation Simulation for Slot No. " + str(slot))
         
-        vpp_total_slot = self.delivery_results["vpp_total"][slot *16 : (slot+1)*16]
-        bid_sizes_per_slot = self.delivery_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]  
+        vpp_total_slot = self.activation_results["vpp_total"][slot *16 : (slot+1)*16]
+        bid_sizes_per_slot = self.activation_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]  
         
-        procurement_possible_list = []
-        #not_procured_capacity_list = []
-        total_not_procured_energy = 0.
+        reservation_possible_list = []
+        #not_reserved_capacity_list = []
+        total_not_reserved_energy = 0.
 
         
         for time_step in range(0, 16):
@@ -1038,64 +1038,64 @@ class VPPBiddingEnv(Env):
             agent_bid_size = bid_sizes_per_slot[time_step] 
             available_vpp_capacity = vpp_total_slot[time_step]
             
-            procurement_possible = False
-            not_procured_capacity = 0
-            not_procured_counter = 0
-            not_procured_energy = 0
+            reservation_possible = False
+            not_reserved_capacity = 0
+            not_reserved_counter = 0
+            not_reserved_energy = 0
             
-            # 1. check negative procurement
+            # 1. check negative reservation
             if (available_vpp_capacity - agent_bid_size) > 0:
-                logging.error("Negative procurement possible for slot " + str(slot) + "and timestep " + str(time_step))
-                procurement_possible = True
+                logging.error("Negative reservation possible for slot " + str(slot) + "and timestep " + str(time_step))
+                reservation_possible = True
 
             else:
-                logging.error("Negative procurement NOT possible for slot " + str(slot) + "and timestep " + str(time_step))
-                not_procured_counter += 1
-                not_procured_capacity += abs(available_vpp_capacity - agent_bid_size)
-                #not_procured_capacity_list.append(not_procured_capacity)
+                logging.error("Negative reservation NOT possible for slot " + str(slot) + "and timestep " + str(time_step))
+                not_reserved_counter += 1
+                not_reserved_capacity += abs(available_vpp_capacity - agent_bid_size)
+                #not_reserved_capacity_list.append(not_reserved_capacity)
                 
-                not_procured_energy = not_procured_capacity * 0.25  # multiply power with time to get energy 
-                total_not_procured_energy += not_procured_energy
+                not_reserved_energy = not_reserved_capacity * 0.25  # multiply power with time to get energy 
+                total_not_reserved_energy += not_reserved_energy
 
-                #not_procured_energy_list.append(not_procured_energy)
+                #not_reserved_energy_list.append(not_reserved_energy)
                 
-            # 2. check positive procurement
+            # 2. check positive reservation
             if agent_bid_size < available_vpp_capacity:
-                logging.error("positive procurement possible for slot " + str(slot) + "and timestep " + str(time_step))
-                procurement_possible = True
+                logging.error("positive reservation possible for slot " + str(slot) + "and timestep " + str(time_step))
+                reservation_possible = True
             else:
-                # only calculate not_procured_capacity if not already calculated for negative FCR
-                if not_procured_counter != 1: 
-                    logging.error("Positive procurement NOT possible (and negative procurement not given penalty yet) for slot " + str(slot) + "and timestep " + str(time_step))
+                # only calculate not_reserved_capacity if not already calculated for negative FCR
+                if not_reserved_counter != 1: 
+                    logging.error("Positive reservation NOT possible (and negative reservation not given penalty yet) for slot " + str(slot) + "and timestep " + str(time_step))
 
-                    not_procured_capacity += abs(agent_bid_size - available_vpp_capacity)
-                    #not_procured_capacity_list.append(not_procured_capacity)
+                    not_reserved_capacity += abs(agent_bid_size - available_vpp_capacity)
+                    #not_reserved_capacity_list.append(not_reserved_capacity)
                     
-                    not_procured_energy = not_procured_capacity * 0.25  # multiply power with time to get energy 
-                    #not_procured_energy_list.append(not_procured_energy)
-                    total_not_procured_energy += not_procured_energy
+                    not_reserved_energy = not_reserved_capacity * 0.25  # multiply power with time to get energy 
+                    #not_reserved_energy_list.append(not_reserved_energy)
+                    total_not_reserved_energy += not_reserved_energy
 
 
-            procurement_possible_list.append(procurement_possible)
+            reservation_possible_list.append(reservation_possible)
 
-        if all(procurement_possible_list): 
-            total_procurement_possible = True
+        if all(reservation_possible_list): 
+            total_reservation_possible = True
         else: 
-            total_procurement_possible = False
+            total_reservation_possible = False
         
-        #not_procured_capacity_mean = sum(not_procured_capacity_list) / len(not_procured_capacity_list)
-        logging.error("total_not_procured_energy for " + str(slot) + "and timestep " + str(time_step) + "is " + str(total_not_procured_energy))
-        self.delivery_results["total_not_procured_energy"][slot] = total_not_procured_energy
+        #not_reserved_capacity_mean = sum(not_reserved_capacity_list) / len(not_reserved_capacity_list)
+        logging.error("total_not_reserved_energy for " + str(slot) + "and timestep " + str(time_step) + "is " + str(total_not_reserved_energy))
+        self.activation_results["total_not_reserved_energy"][slot] = total_not_reserved_energy
 
-        return total_procurement_possible
+        return total_reservation_possible
 
                 
 
-    def _check_delivery_possible(self, agent_bid_size, vpp_total_step):
+    def _check_activation_possible(self, agent_bid_size, vpp_total_step):
         '''
         
         '''
-        # assumption: mean delivery length: 30 Seconds 
+        # assumption: mean activation length: 30 Seconds 
         # assumption: mean number of deliveries per hour: every 60 seconds = once every minute
         # assumption: positive and negative : 50 % / 50% = per 15 minutes:  
             #  7,5 times * 30 Seconds positive FCR 
@@ -1104,21 +1104,21 @@ class VPPBiddingEnv(Env):
         not_delivered_capacity = 0
         not_delivered_energy = 0
 
-        # 2. Probability of maximum Delivery Amount (74 % :  0 - 5 %  Capacity , 18 % : 5 - 10 % , 5% : 10-15% ( 97%: max 15 %)
+        # 2. Probability of maximum activation Amount (74 % :  0 - 5 %  Capacity , 18 % : 5 - 10 % , 5% : 10-15% ( 97%: max 15 %)
 
-        max_delivery_share = random.choices(
+        max_activation_share = random.choices(
              population=[0.05, 0.1,  0.15, 0.2,  0.25,  0.5,   0.75,   1.0],
              weights=   [0.74, 0.18, 0.05, 0.02, 0.007, 0.001, 0.001, 0.001],
              k=1
          )
 
-        capacity_to_deliver = max_delivery_share[0] * agent_bid_size
+        capacity_to_deliver = max_activation_share[0] * agent_bid_size
 
         logging.debug("check No. 2: agent_bid_size : " + str(agent_bid_size))
-        logging.debug("check No. 2: max_delivery_share : " + str(max_delivery_share[0]))
+        logging.debug("check No. 2: max_activation_share : " + str(max_activation_share[0]))
         logging.debug("check No. 2: capacity_to_deliver : " + str(capacity_to_deliver))
         
-        # 3. Probability of successfull Delivery (100%: 10% of HPP Capacity = Probability Curve)
+        # 3. Probability of successfull activation (100%: 10% of HPP Capacity = Probability Curve)
 
         mean = 0 # symmetrical normal distribution at 0 
         sd = self.maximum_possible_VPP_capacity/7
@@ -1134,26 +1134,26 @@ class VPPBiddingEnv(Env):
         #plt.plot(x_axis, (norm.pdf(x_axis, mean, sd)) * scale_factor + shift_to_100)
         #plt.show()
 
-        propab_of_delivery = round((norm.pdf(capacity_to_deliver, mean,sd) * scale_factor),3)
+        propab_of_activation = round((norm.pdf(capacity_to_deliver, mean,sd) * scale_factor),3)
 
-        if propab_of_delivery > 1.0: 
-            propab_of_delivery =  1.0
+        if propab_of_activation > 1.0: 
+            propab_of_activation =  1.0
 
-        logging.debug("check No. 3: propab_of_delivery = " + str(propab_of_delivery))
+        logging.debug("check No. 3: propab_of_activation = " + str(propab_of_activation))
 
-        delivery_possible = random.choices(
+        activation_possible = random.choices(
              population=[True, False],
-             weights=   [propab_of_delivery , (1-propab_of_delivery)],
+             weights=   [propab_of_activation , (1-propab_of_activation)],
              k=1
          )
-        delivery_possible = delivery_possible[0] # as bool is in list 
-        logging.debug("check No. 3: delivery_possible : " + str(delivery_possible))
+        activation_possible = activation_possible[0] # as bool is in list 
+        logging.debug("check No. 3: activation_possible : " + str(activation_possible))
         
         # 4. Check VPP Boundaries: In case of a very high or low operating point (nearly 100% or 0% power output of the HPP): 
-        # then the delivery is not possible. 
+        # then the activation is not possible. 
         logging.error("Check No. 4")
-        # check if probability of delivery is high and capacity could be deliverd
-        if delivery_possible == True:
+        # check if probability of activation is high and capacity could be deliverd
+        if activation_possible == True:
             # when negative FCR : 
             if capacity_to_deliver < 0:
                 # check if capacity_to_deliver is bigger than vpp_total_step
@@ -1166,7 +1166,7 @@ class VPPBiddingEnv(Env):
                     # 7.5 = only for negative FCR = half of 15minutes , other half for positive FCR.  
                     not_delivered_energy = 7.5 * (not_delivered_capacity * 0.5/60)  # multiply power with time to get energy 
 
-                    delivery_possible = False
+                    activation_possible = False
             # if positive FCR
             else:
                 # positive FCR is already included in vpp_total_step, so it should be possible
@@ -1174,7 +1174,7 @@ class VPPBiddingEnv(Env):
                 if (vpp_total_step + capacity_to_deliver) > self.maximum_possible_VPP_capacity: 
                     logging.error("Error, FCR is larger than maximum_possible_VPP_capacity")
                     not_delivered_capacity
-                    delivery_possible = False'''
+                    activation_possible = False'''
                 # if the plant cant produce any power then positive FCR is also not possible
                 if capacity_to_deliver >= vpp_total_step:
                     logging.error("Check No. 4: Error, FCR is larger than vpp_total_step")
@@ -1186,27 +1186,27 @@ class VPPBiddingEnv(Env):
                     # 7.5 = only for positive FCR = half of 15minutes , other half for negative FCR.  
                     not_delivered_energy = 7.5 * (not_delivered_capacity * 0.5/60)  # multiply power with time to get energy 
 
-                    delivery_possible = False
+                    activation_possible = False
                     
-        logging.debug("check No. 4: delivery_possible : " + str(delivery_possible))   
+        logging.debug("check No. 4: activation_possible : " + str(activation_possible))   
          
-        return delivery_possible, not_delivered_energy
+        return activation_possible, not_delivered_energy
     
 
-    def _simulate_delivery(self, slot): 
+    def _simulate_activation(self, slot): 
                 
-        logging.debug("Delivery Simulation for Slot No. " + str(slot))
+        logging.debug("activation Simulation for Slot No. " + str(slot))
         
-        vpp_total_slot = self.delivery_results["vpp_total"][slot *16 : (slot+1)*16]
-        bid_sizes_per_slot = self.delivery_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]
+        vpp_total_slot = self.activation_results["vpp_total"][slot *16 : (slot+1)*16]
+        bid_sizes_per_slot = self.activation_results["bid_sizes_all_slots"][slot *16 : (slot+1)*16]
         
         #logging.debug("vpp_total_FCR_slot " + str(vpp_total_FCR_slot))
         logging.debug("vpp_total_slot " + str(vpp_total_slot))
         logging.debug("bid_sizes_per_slot " + str(bid_sizes_per_slot))
 
-        delivery_possible = None
-        positive_delivery_possible_list = []
-        negative_delivery_possible_list = []
+        activation_possible = None
+        positive_activation_possible_list = []
+        negative_activation_possible_list = []
         total_not_delivered_energy = 0.
 
         # check for every timestep
@@ -1219,24 +1219,24 @@ class VPPBiddingEnv(Env):
 
             # check if positive FCR could be provided 
             logging.debug("check positive FCR")
-            delivery_possible, not_delivered_energy = self._check_delivery_possible(agent_bid_size, vpp_total_slot[time_step])
-            positive_delivery_possible_list.append(delivery_possible)
-            if delivery_possible == False:
+            activation_possible, not_delivered_energy = self._check_activation_possible(agent_bid_size, vpp_total_slot[time_step])
+            positive_activation_possible_list.append(activation_possible)
+            if activation_possible == False:
                     total_not_delivered_energy += not_delivered_energy
 
             # check if negative FCR could be provided 
             logging.debug("check negative FCR")
-            delivery_possible, not_delivered_energy = self._check_delivery_possible(-agent_bid_size, vpp_total_slot[time_step])
-            negative_delivery_possible_list.append(delivery_possible)
-            if delivery_possible == False:
+            activation_possible, not_delivered_energy = self._check_activation_possible(-agent_bid_size, vpp_total_slot[time_step])
+            negative_activation_possible_list.append(activation_possible)
+            if activation_possible == False:
                 total_not_delivered_energy += not_delivered_energy
 
-        if all(positive_delivery_possible_list) and all(negative_delivery_possible_list): 
-            total_delivery_possible = True 
+        if all(positive_activation_possible_list) and all(negative_activation_possible_list): 
+            total_activation_possible = True 
         else: 
-            total_delivery_possible = False
+            total_activation_possible = False
             
-        logging.debug("total_delivery_possible for slot " + str(slot) + " : " + str(total_delivery_possible))
-        self.delivery_results["delivered_slots"][slot] = total_delivery_possible
-        self.delivery_results["total_not_delivered_energy"][slot] = total_not_delivered_energy
+        logging.debug("total_activation_possible for slot " + str(slot) + " : " + str(total_activation_possible))
+        self.activation_results["delivered_slots"][slot] = total_activation_possible
+        self.activation_results["total_not_delivered_energy"][slot] = total_not_delivered_energy
            
