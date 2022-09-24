@@ -29,14 +29,14 @@ from gym.spaces import Box, Dict
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 class VPPBiddingEnv(Env):
-    
+    metadata = {"render_modes": ["human", "fast_training"]}
+
     def __init__(self,
                  config_path,
                  log_level, 
                  env_type,
-                 render_mode="human"
+                 render_mode=None
                 ):
-        
         logger = logging.getLogger()
         while logger.hasHandlers():
                 logger.removeHandler(logger.handlers[0])
@@ -59,6 +59,9 @@ class VPPBiddingEnv(Env):
         logging.debug("log level = debug")
         logging.info("log level = info")
         logging.warning("log level = warning")
+        
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        self.render_mode = render_mode
         
         # data 
         self.config = self._load_config(config_path)
@@ -260,7 +263,6 @@ class VPPBiddingEnv(Env):
             "slot_settlement_prices_DE": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
             })
 
-        self.observation = None
         
     def _load_test_set(self):
         df = self._load_data("test_set")
@@ -338,7 +340,22 @@ class VPPBiddingEnv(Env):
     
     
     def reset(self, seed=None, return_info=False, options=None):
+        """ 
+        The reset method will be called to initiate a new episode.
+        reset should be called whenever a done signal has been issued
+
+        Args:
+            seed (_type_, optional): _description_. Defaults to None.
+            return_info (bool, optional): _description_. Defaults to False.
+            options (_type_, optional): _description_. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """        
         
+        
+        #print("in reset() and logging_step = " + str(self.logging_step))
+
         if self.initial is False:
             
             if self.env_type == "training": 
@@ -396,8 +413,12 @@ class VPPBiddingEnv(Env):
         logging.debug("self.previous_activation_results after clearing")
         logging.debug("self.previous_activation_results = " + str(self.previous_activation_results))
         
-        self.activation_results["slots_won"] = [0, 0, 0, 0, 0, 0]
-        self.activation_results["slot_settlement_prices_DE"] = [0., 0., 0., 0., 0., 0.]
+        #if self.initial == False: 
+            #print('self.previous_activation_results["slots_won"] = ' + str(self.previous_activation_results["slots_won"]))
+            #print('self.previous_activation_results["slot_settlement_prices_DE"] = ' + str(self.previous_activation_results["slot_settlement_prices_DE"]))
+
+        self.activation_results["slots_won"] = [None, None, None, None, None, None]
+        self.activation_results["slot_settlement_prices_DE"] = [None, None, None, None, None, None]
         
         # reset for each episode 
         self._get_new_timestamps()
@@ -405,15 +426,32 @@ class VPPBiddingEnv(Env):
         self.current_daily_mean_market_price = self.market_prices_df.iloc[self.market_prices_df.index.get_indexer([self.market_end], method='nearest')]['price_DE'].values[0]
 
         # get new observation
-        self._get_observation()
+        observation = self._get_observation()
+        
+        # TRY : NO RENDERING IN RESET()
+        #if self.render_mode == "human":
+        #    self.render()
         
         # when first Episode is finished, set boolean.  
         self.initial = False
         
         self.logging_step += 1
         logging.debug("logging_step: " + str(self.logging_step))
+        #print(("-" * 10 )+ "reset done" + ("-" * 10 ) )
         
-        return self.observation
+        return observation
+    
+    
+    def _get_info(self):
+        """
+        method for the auxiliary information that is returned by step and reset
+        info will also contain some data that is only available inside the step method (e.g. individual reward terms)
+
+        """        
+        info = {"test_info": "info"}
+        
+        return info 
+    
                 
     
     def _get_new_timestamps(self):
@@ -457,21 +495,8 @@ class VPPBiddingEnv(Env):
     
     
     def _get_observation(self):
-        
-        '''if (self.done is False) and (self.initial is False):
-            print("if schleife 1 ")
-            print("done = " + str(self.done))
-            print("initial = " + str(self.initial))
-            
-            self.observation["slots_won"] = np.array(self.activation_results["slots_won"], dtype=np.int32)
-            self.observation["slot_settlement_prices_DE"] = np.array(self.activation_results["slot_settlement_prices_DE"], dtype=np.float32)
-            
-            
-        if (self.done is True) or (self.initial is True):
-            print("if schleife 2 ")
-            print("done = " + str(self.done))
-            print("initial = " + str(self.initial))'''
-    
+        #print("in _get_observation() and logging_step = " + str(self.logging_step))
+
         asset_data_historic = self.asset_data_total[str(self.historic_data_start) : str(self.historic_data_end)].to_numpy(dtype=np.float32)
         logging.debug("asset_data_historic = " + str(self.asset_data_total[str(self.historic_data_start) : str(self.historic_data_end)]) )
         # normalize the data 
@@ -532,16 +557,69 @@ class VPPBiddingEnv(Env):
         priorHoliday_norm = self.bool_scaler.transform(np.array(priorHoliday).reshape(-1, 1))
         priorHoliday_norm = priorHoliday_norm.flatten().astype('float32')
         
-        slots_won =  np.array(self.activation_results["slots_won"], dtype=np.int32)
-        slots_won_norm = self.bool_scaler.transform(np.array(slots_won).reshape(-1, 1))
-        slots_won_norm = slots_won_norm.flatten().astype('float32')
+        # beim ersten Trainingstep, wenn noch keine Daten vorhanden  
+        if (self.initial is True):
+            #print("if schleife 1 = observation nachdem action in step() geataked wurde ")
+            #print("done = " + str(self.done))
+            #print("initial = " + str(self.initial))
+            slots_won = [0,0,0,0,0,0]
+            slot_settlement_prices_DE = [0.,0.,0.,0.,0.,0.]
         
-        slot_settlement_prices_DE = np.array(self.activation_results["slot_settlement_prices_DE"], dtype=np.float32)
+        # observation nach reset
+        if (self.done is False) and (self.initial is False):
+            #print("if schleife 2 = observation nach reset und bevor action getaket wurde ")
+            #print("done = " + str(self.done))
+            #print("initial = " + str(self.initial))
+                        
+            slots_won = self.previous_activation_results["slots_won"]
+            #print("slots_won (previous_activation_results) in get_observation() = " + str(slots_won))
+            # replace None (=for not in auciton participated) to 0 (= slot lost)
+            for i in range(len(slots_won)): 
+                if slots_won[i] == None: 
+                    slots_won[i] = 0
+            #print("slots_won in (previous_activation_results) get_observation() after transformation= " + str(slots_won))
+           
+            
+            slot_settlement_prices_DE = self.previous_activation_results["slot_settlement_prices_DE"]
+            # replace None with 0 
+            for i in range(len(slot_settlement_prices_DE)): 
+                if slot_settlement_prices_DE[i] == None: 
+                    slot_settlement_prices_DE[i] = 0.0
+           
+        # observation nachdem action angewendet wurde 
+        if (self.done is True) and (self.initial is False):
+            #print("if schleife 3 = observation nachdem action in step() geataked wurde ")
+            slots_won = self.activation_results["slots_won"].copy()
+            #print("slots_won (activation_results) in get_observation() = " + str(slots_won))
+            # replace None (=for not in auciton participated) to 0 (= slot lost)
+            for i in range(len(slots_won)): 
+                if slots_won[i] == None: 
+                    slots_won[i] = 0
+            #print("slots_won in (activation_results) get_observation() after transformation= " + str(slots_won))
+           
+            
+            slot_settlement_prices_DE = self.activation_results["slot_settlement_prices_DE"]
+            # replace None with 0 
+            for i in range(len(slot_settlement_prices_DE)): 
+                if slot_settlement_prices_DE[i] == None: 
+                    slot_settlement_prices_DE[i] = 0.0
+            
+
+            
+        slots_won =  np.array(slots_won, dtype=np.int32)
+        #print("slots_won as array = " + str(slots_won))
+        slots_won_norm = self.bool_scaler.transform(np.array(slots_won).reshape(-1, 1))
+        #print("slots_won_norm = " + str(slots_won_norm))
+        slots_won_norm = slots_won_norm.flatten().astype('float32')
+        #print("slots_won_norm (flatten) = " + str(slots_won_norm))
+
+        
+        slot_settlement_prices_DE = np.array(slot_settlement_prices_DE, dtype=np.float32)
         slot_settlement_prices_DE_norm = self.slot_settlement_prices_DE_scaler.transform((slot_settlement_prices_DE.reshape(-1, 1)))
         #slot_settlement_prices_DE_norm = [x for xs in list(slot_settlement_prices_DE_norm) for x in xs]
         slot_settlement_prices_DE_norm = slot_settlement_prices_DE_norm.flatten().astype('float32')
-
-        self.observation = OrderedDict({
+       
+        observation = OrderedDict({
             "asset_data_historic": asset_data_historic_norm,
             "asset_data_forecast": noisy_asset_data_forecast_norm,
             "predicted_market_prices": predicted_market_prices_norm,
@@ -555,11 +633,33 @@ class VPPBiddingEnv(Env):
             "slot_settlement_prices_DE": slot_settlement_prices_DE_norm
             })
         
-        logging.debug("NEW Observation = "  + str(self.observation))
-            
+        logging.debug("NEW Observation = "  + str(observation))
+        
+        
+        #if self.activation_results:
+            #print( 'AM ENDE VON get_obsertvation() self.activation_results["slots_won"] = ' + str( self.activation_results["slots_won"]))
+            #print("observation['slots_won'] (flatten) = " + str( observation["slots_won"]))
+
+        return observation
     
     
     def step(self, action):
+        """
+        The step method usually contains most of the logic of your environment. 
+        It accepts an action, computes the state of the environment after applying that
+        action and returns the 4-tuple (observation, reward, done, info).
+        Once the new state of the environment has been computed, we can check whether 
+        it is a terminal state and we set done accordingly. 
+        step method will not be called before reset has been called
+
+        Args:
+            action (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """        
+        #print("in step() and logging_step = " + str(self.logging_step))
+
         
         # convert action list with shape (12,) into dict
         
@@ -601,12 +701,12 @@ class VPPBiddingEnv(Env):
             total_profit = round(self.total_profit,2)
         )
         
-        
         self._update_history(info)
                 
         self.done = True
-        self._get_observation()
         
+        observation = self._get_observation()
+        info_NEW = self._get_info()
         
         if self.env_type != "test":
             
@@ -620,6 +720,7 @@ class VPPBiddingEnv(Env):
                     #step=self.logging_step,
                     commit=False)
                 
+            if self.render_mode == "human":
                 self.render()
             
             if self.env_type == "eval":
@@ -632,10 +733,14 @@ class VPPBiddingEnv(Env):
                     #step=self.logging_step,
                     commit=False
                 )
+                
+        #print(("*" * 10 )+ "step done" + ("*" * 10 ) )
         
-        return self.observation, step_reward, self.done, info
+        return observation, step_reward, self.done, info
     
-    def _calculate_reward(self):        
+    
+    def _calculate_reward(self):    
+        #print("in _calculate_reward() and logging_step = " + str(self.logging_step))
         # Step 1 of Reward Function: The Auction
         # did the agent win the auction? 
         # what was the revenue ?
@@ -652,6 +757,7 @@ class VPPBiddingEnv(Env):
 
         logging.info("Reward Overview:")
         logging.info("self.activation_results['slots_won']: " + str(self.activation_results["slots_won"]))
+        #print("self.activation_results['slots_won'] in _calculate_reward() = " + str(self.activation_results["slots_won"]))
         logging.info("len(self.activation_results['slots_won']) : "  + str(len(self.activation_results["slots_won"])))       
         
         for slot in range(0, len(self.activation_results["slots_won"])):
@@ -660,6 +766,7 @@ class VPPBiddingEnv(Env):
             
             logging.info("slot no. " + str(slot))
             
+            # if agent lost the slot 
             if self.activation_results["slots_won"][slot] == 0:
                 logging.info("slot no " + str(slot) + " was lost")
                 slot_settlement_price = self.activation_results["slot_settlement_prices_DE"][slot]
@@ -668,12 +775,42 @@ class VPPBiddingEnv(Env):
 
                 distance_to_settlement_price = agents_bid_price - slot_settlement_price
                 logging.info("distance_to_settlement_price = " + str(distance_to_settlement_price))
-                logging.info("self.price_scaler.data_max_[0] = " + str(self.price_scaler.data_max_[0]))
 
                 step_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0] )**0.4
                 logging.info("step_reward = " + str(step_reward))
                 
                 #step_reward -= 0
+                
+            # If agent did not participate in auction, no hard negative reward, but we want to push him to participate in auction 
+            if self.activation_results["slots_won"][slot] is None:
+                logging.info("agent did not participate in auction for slot no " + str(slot))
+                
+                slot_settlement_price = self.activation_results["slot_settlement_prices_DE"][slot]
+                agents_bid_price = self.activation_results["agents_bid_prices"][slot]
+                distance_to_settlement_price = agents_bid_price - slot_settlement_price
+                logging.info("distance_to_settlement_price = " + str(distance_to_settlement_price))
+
+                # if distance_to_settlement_price is a negative number (occurs, when agent didnt participate in auction and price is smaller than settlement price)
+                # then no negative reward based on price can be given, an alternative reward based on distance to possible vpp capacity is given.
+                if distance_to_settlement_price < 0:
+                    distance_to_settlement_price = 0
+                    
+                    # get minimum possible VPP Capacity for the given slot 
+                    vpp_total_slot_min = min(self.activation_results["vpp_total"][slot *16 : (slot+1)*16])
+
+                    # as slot bid size from agent already was 0 , the distance is vpp_total_slot_min                   
+                    distance_to_vpp_capacity = vpp_total_slot_min
+                    
+                    # step reward based on distance to maximumm vpp capacity during slot divided by maximum vpp capacity overall. 
+                    # the greater the distance the lower the reward
+                    step_reward = (1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0])**0.4) 
+                
+                # if price was higher than settlement price, a reward based on distance_to_settlement_price is given.
+                else: 
+                    step_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0])**0.4
+
+                logging.info("step_reward = " + str(step_reward))
+                
 
             if self.activation_results["slots_won"][slot] == 1:
                 logging.info("slot no. " + str(slot)+  " was won")
@@ -689,6 +826,8 @@ class VPPBiddingEnv(Env):
                 
                 # extract the bid size of the agent 
                 agents_bid_size = self.activation_results["agents_bid_sizes_round"][slot]
+                logging.info("agents_bid_size: " + str(agents_bid_size))
+
                 # and calculate the reward by multiplying the bid size with the settlement price of the slot
                 basic_compensation = (agents_bid_size * self.activation_results["slot_settlement_prices_DE"][slot])
                 logging.info("basic_compensation: " + str(basic_compensation))
@@ -750,17 +889,19 @@ class VPPBiddingEnv(Env):
                 
                 #step_reward +=  step_profit
                 
-                # create weighted step reward 
+            # create weighted step reward 
                 
-                weighted_step_reward = step_reward / 3
+            weighted_step_reward = step_reward / 3
                 
-                total_step_reward += weighted_step_reward
+            total_step_reward += weighted_step_reward
                 
-                logging.info("agents_bid_size: " + str(agents_bid_size))
-                logging.info("self.activation_results['slot_settlement_prices_DE'][slot]: " + str(self.activation_results["slot_settlement_prices_DE"][slot]))
-                logging.info("step_profit: " + str(step_profit))
-                logging.info("weighted_step_reward Slot " + str(slot) +" = " + str(weighted_step_reward))
-                        
+            logging.info("for slot no : " + str(slot))
+            logging.info("self.activation_results['slot_settlement_prices_DE'][slot]: " + str(self.activation_results["slot_settlement_prices_DE"][slot]))
+            logging.info("step_profit: " + str(step_profit))
+            logging.info("step_reward: " + str(step_reward))
+            logging.info("weighted_step_reward (step_reward/3) = " + str(weighted_step_reward))
+            logging.info("total_step_reward = " + str(total_step_reward))
+   
         # further rewards? 
         # diff to the settlement price
         # diff to the max. forecasted capacity of the VPP
@@ -920,30 +1061,46 @@ class VPPBiddingEnv(Env):
 
             
     def render(self):
+        #print("in render() and logging_step = " + str(self.logging_step))
         if not self.activation_results:
             logging.debug("self.activation_results is empty, not plotting it ")
         else:
             # only plot to wandb when not in test mode
             if self.env_type != "test":
+                # if training step < 0 , (first training step) nothing will be rendered 
                 if self.logging_step > 0: 
                     logging.debug(" now in render()")        
                     logging.debug(" self.previous_activation_results " + str(self.previous_activation_results))      
-                    logging.debug(" self.activation_results['slots_won'] " + str(self.activation_results["slots_won"]))      
+                    logging.debug(" self.activation_results['slots_won'] " + str(self.activation_results["slots_won"]))     
+                    #print("self.previous_activation_results['slots_won'] in render() = " + str(self.previous_activation_results["slots_won"]))
+ 
 
                     # Render Won / Lost Slots 
-                    slots_won = self.previous_activation_results["slots_won"]
+                    slots_won = self.activation_results["slots_won"]
                     logging.debug(" slots_won " + str(slots_won))      
+                    #print("activation_results are used for rendering")
+                    #print("self.activation_results['slots_won'] in render() = " + str(self.activation_results["slots_won"]))
                     slots_lost = [None,None,None,None,None,None]
+                    slots_not_participated = [None,None,None,None,None,None]
+
                     for x in range(len(slots_won)):
                         if slots_won[x] == 1:
                             slots_lost[x] = 0
-                        else:
+                            slots_not_participated[x] = 0
+                        elif slots_won[x] is None:
+                            slots_lost[x] = 0
+                            slots_won[x]  = 0
+                            slots_not_participated[x] = 1
+                        elif slots_won[x] == 0:
                             slots_lost[x] = 1
-
-                    data = {'Slot Won': slots_won, 'Slot Lost': slots_lost}
+                            slots_not_participated[x] = 0
+                    #print("slots_won = " + str(slots_won))
+                    #print("slots_lost = " + str(slots_lost))
+                    #print("slots_not_participated = " + str(slots_not_participated))
+                    data = {'Slot Won': slots_won, 'Slot Lost': slots_lost, 'Slot not part.': slots_not_participated}
                     slots_df = pd.DataFrame(data=data, index=[1, 2, 3, 4, 5, 6])
                     logging.debug(" slots_df " + str(slots_df))
-                    slots_won_plot = px.bar(slots_df,  x= slots_df.index, y=['Slot Won', 'Slot Lost'], color_discrete_sequence=[ "green", "gainsboro"] )
+                    slots_won_plot = px.bar(slots_df,  x= slots_df.index, y=['Slot Won', 'Slot Lost', 'Slot not part.'], color_discrete_sequence=[ "green", "red", "gainsboro"] )
 
                     # Render activation for Capacity 
                     activation_plot = go.Figure()
@@ -1050,78 +1207,84 @@ class VPPBiddingEnv(Env):
             self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
 
             
-            # First check if agents bid price is higher than the settlement price of Germany 
-            # OR if agents bid size is 0 
-            if (agents_bid_price > settlement_price_DE) or (agents_bid_size == 0):
-                # if it is higher, the slot is lost. 
-                self.activation_results["slots_won"][slot] = 0
-                # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
-                #self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
+            # first check if agents bid size is 0 , which means: not participating in auciton
+            if (agents_bid_size == 0.0): 
+                logging.info("no participation in market of agent")
+                # set slot won to None
+                self.activation_results["slots_won"][slot] = None
             else: 
-                # If agents bid price is lower than settlement price (bid could be in awarded bids)
-                # get CBMP of countries without LMP
-                unique_country_bids = list({v['country']:v for v in slot_bids_list}.values())
-                grouped_prices = [x['settlement_price'] for x in unique_country_bids]
-                cbmp = max(set(grouped_prices), key = grouped_prices.count)
-                logging.info( "cbmp : " + str(cbmp))
-                # check if settlement_price_DE is same as CBMP (no limit constraints where hit)
-                if cbmp == settlement_price_DE:
-                    price_filter = cbmp
-                    logging.debug("DE has CBMP")
-                else: 
-                    # if Germany has a price based on limit constraints
-                    price_filter = settlement_price_DE
-                    logging.debug("DE has LMP")
-                                
-                # as the probability is high that the agents bid moved the last bid out of the list, 
-                # we have to check which bids moved out of the list and what is the new settlement price
-                
-                # sort the bid list based on the price
-                slot_bids_list_sorted_by_price = sorted(slot_bids_list, key=lambda x: x['price'])
-                # filter the bid list by the settlement price of either the CBMP or the LMP of germany 
-                #slot_bids_prices_filtered = [bid['price'] for bid in slot_bids_list_sorted_by_price if bid['settlement_price']== price_filter]
-                #logging.debug(slot_bids_prices_filtered)
-                slot_bids_filtered = [bid for bid in slot_bids_list_sorted_by_price if bid['settlement_price']== price_filter]
-                accumulated_replaced_capacity = 0
-                
-                slot_bids_filtered_size_sum = sum([bid['size'] for bid in slot_bids_filtered])
-                # for the case the action_dict space is not dynamic and agent can choose any bid size,
-                 # it needs to be checked here if the agents_bid_size is too big and unrealistic
-                if agents_bid_size >= slot_bids_filtered_size_sum:
-                    logging.debug("unrealistic bid size")
-                    # set auction won to false
+                # second check if agents bid price is higher than the settlement price of Germany
+                if (agents_bid_price > settlement_price_DE):
+                    # if it is higher, the slot is lost. 
                     self.activation_results["slots_won"][slot] = 0
-                    # set settlement price to zero as it is an unrealistic auction
-                    ##self.activation_results["slot_settlement_prices_DE"][slot] = 0
-                    # i would rather set the old settlement_price_DE as the market price instead of blank 0. 
-                    self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
-                else:
-                    for bid in range(0, len(slot_bids_filtered)): 
-                        logging.debug("bid size = " + str(slot_bids_filtered[-(bid+1)]["size"]))
-                        logging.debug("bid price = " + str(slot_bids_filtered[-(bid+1)]["price"]))
-                        bid_capacity = slot_bids_filtered[-(bid+1)]["size"]
-                        accumulated_replaced_capacity += bid_capacity
-                        logging.debug("accumulated_replaced_capacity = " + str( accumulated_replaced_capacity))
-                            
-                        if accumulated_replaced_capacity >= agents_bid_size:
-                            logging.debug("realistic bid size")
-                            if slot_bids_filtered[-(bid+1)]["indivisible"] is False:
-                                logging.debug("bid is divisible, so current bids price is new settlement price")
-                                new_settlement_price_DE = slot_bids_filtered[-(bid+1)]["price"]
-                                logging.info("new_settlement_price_DE = " + str( new_settlement_price_DE))
-                                # set boolean for auction win
-                                self.activation_results["slots_won"][slot] = 1
-                                # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
-                                self.activation_results["slot_settlement_prices_DE"][slot] = new_settlement_price_DE
-                                break
-                            else:
-                                logging.debug("bid is INDIVISIBLE, so move one bids further is new settlement price")
-                                accumulated_replaced_capacity -= bid_capacity
-                                continue
+                    # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
+                    #self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
+                else: 
+                    # If agents bid price is lower than settlement price (bid could be in awarded bids)
+                    # get CBMP of countries without LMP
+                    unique_country_bids = list({v['country']:v for v in slot_bids_list}.values())
+                    grouped_prices = [x['settlement_price'] for x in unique_country_bids]
+                    cbmp = max(set(grouped_prices), key = grouped_prices.count)
+                    logging.info( "cbmp : " + str(cbmp))
+                    # check if settlement_price_DE is same as CBMP (no limit constraints where hit)
+                    if cbmp == settlement_price_DE:
+                        price_filter = cbmp
+                        logging.debug("DE has CBMP")
+                    else: 
+                        # if Germany has a price based on limit constraints
+                        price_filter = settlement_price_DE
+                        logging.debug("DE has LMP")
+                                    
+                    # as the probability is high that the agents bid moved the last bid out of the list, 
+                    # we have to check which bids moved out of the list and what is the new settlement price
+                    
+                    # sort the bid list based on the price
+                    slot_bids_list_sorted_by_price = sorted(slot_bids_list, key=lambda x: x['price'])
+                    # filter the bid list by the settlement price of either the CBMP or the LMP of germany 
+                    #slot_bids_prices_filtered = [bid['price'] for bid in slot_bids_list_sorted_by_price if bid['settlement_price']== price_filter]
+                    #logging.debug(slot_bids_prices_filtered)
+                    slot_bids_filtered = [bid for bid in slot_bids_list_sorted_by_price if bid['settlement_price']== price_filter]
+                    accumulated_replaced_capacity = 0
+                    
+                    slot_bids_filtered_size_sum = sum([bid['size'] for bid in slot_bids_filtered])
+                    # for the case the action_dict space is not dynamic and agent can choose any bid size,
+                    # it needs to be checked here if the agents_bid_size is too big and unrealistic
+                    if agents_bid_size >= slot_bids_filtered_size_sum:
+                        logging.debug("unrealistic bid size")
+                        # set auction won to false
+                        self.activation_results["slots_won"][slot] = 0
+                        # set settlement price to zero as it is an unrealistic auction
+                        ##self.activation_results["slot_settlement_prices_DE"][slot] = 0
+                        # i would rather set the old settlement_price_DE as the market price instead of blank 0. 
+                        self.activation_results["slot_settlement_prices_DE"][slot] = settlement_price_DE
+                    else:
+                        for bid in range(0, len(slot_bids_filtered)): 
+                            logging.debug("bid size = " + str(slot_bids_filtered[-(bid+1)]["size"]))
+                            logging.debug("bid price = " + str(slot_bids_filtered[-(bid+1)]["price"]))
+                            bid_capacity = slot_bids_filtered[-(bid+1)]["size"]
+                            accumulated_replaced_capacity += bid_capacity
+                            logging.debug("accumulated_replaced_capacity = " + str( accumulated_replaced_capacity))
+                                
+                            if accumulated_replaced_capacity >= agents_bid_size:
+                                logging.debug("realistic bid size")
+                                if slot_bids_filtered[-(bid+1)]["indivisible"] is False:
+                                    logging.debug("bid is divisible, so current bids price is new settlement price")
+                                    new_settlement_price_DE = slot_bids_filtered[-(bid+1)]["price"]
+                                    logging.info("new_settlement_price_DE = " + str( new_settlement_price_DE))
+                                    # set boolean for auction win
+                                    self.activation_results["slots_won"][slot] = 1
+                                    # set settlement price for the current auctioned slot in slot_settlement_prices_DE list
+                                    self.activation_results["slot_settlement_prices_DE"][slot] = new_settlement_price_DE
+                                    break
+                                else:
+                                    logging.debug("bid is INDIVISIBLE, so move one bids further is new settlement price")
+                                    accumulated_replaced_capacity -= bid_capacity
+                                    continue
                         
 
             logging.info("self.activation_results['slots_won'] = ")
             logging.info("\n".join("slot won: \t{}".format(k) for k in self.activation_results["slots_won"]))
+            #print("self.activation_results['slots_won'] in _simulate_market() = " + str(self.activation_results["slots_won"]))
             logging.info("     agents bid_size = ")
             logging.info("\n".join("size: \t{}".format(round(k) )for k in action_dict["size"]))            
             logging.info("self.activation_results['slot_settlement_prices_DE'] = ")
