@@ -67,9 +67,7 @@ def simulate_vpp(self):
     """_summary_
     """    
     vpp_total = self.asset_data_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
-    #vpp_total_FCR = self.asset_data_FCR_total[str(self.market_start) : str(self.market_end)].to_numpy(dtype=np.float32)
     
     self.activation_results["vpp_total"] = vpp_total
-    #self.activation_results["vpp_total_FCR"] = vpp_total_FCR
     self.activation_results["bid_sizes_all_slots"] = [0] * 96
     

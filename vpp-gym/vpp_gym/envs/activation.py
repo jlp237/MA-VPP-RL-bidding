@@ -23,6 +23,8 @@ def prepare_activation(self):
     # initialize slots dict
     self.activation_results["reserved_slots"] = [0,0,0,0,0,0]
     self.activation_results["delivered_slots"] = [0,0,0,0,0,0]
+    self.activation_results["positive_activation_possible_list"] = [None, None, None, None, None, None]
+    self.activation_results["negative_activation_possible_list"] = [None, None, None, None, None, None]
     #self.activation_results["not_delivered_capacity"] = [None,None,None,None,None,None]
            
            
@@ -185,5 +187,7 @@ def simulate_activation(self, slot):
         total_activation_possible = False
         
     self.activation_results["total_not_delivered_energy"][slot] = total_not_delivered_energy
+    self.activation_results["positive_activation_possible_list"][slot] = positive_activation_possible_list
+    self.activation_results["negative_activation_possible_list"][slot] = negative_activation_possible_list
     
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  str(slot)   + " total_activation_possible for slot " + str(slot) + " : " + str(total_activation_possible))

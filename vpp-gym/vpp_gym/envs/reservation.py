@@ -38,11 +38,11 @@ def simulate_reservation(self, slot):
         
         # 1. check negative reservation
         if (available_vpp_capacity - agent_bid_size) > 0:
-            logging.error("Negative reservation possible for slot " + str(slot) + "and timestep " + str(time_step))
+            logging.debug("Negative reservation possible for slot " + str(slot) + "and timestep " + str(time_step))
             reservation_possible = True
 
         else:
-            logging.error("Negative reservation NOT possible for slot " + str(slot) + "and timestep " + str(time_step))
+            logging.debug("Negative reservation NOT possible for slot " + str(slot) + "and timestep " + str(time_step))
             not_reserved_counter += 1
             not_reserved_capacity += abs(available_vpp_capacity - agent_bid_size)
             #not_reserved_capacity_list.append(not_reserved_capacity)
@@ -54,12 +54,12 @@ def simulate_reservation(self, slot):
             
         # 2. check positive reservation
         if agent_bid_size < available_vpp_capacity:
-            logging.error("positive reservation possible for slot " + str(slot) + "and timestep " + str(time_step))
+            logging.debug("positive reservation possible for slot " + str(slot) + "and timestep " + str(time_step))
             reservation_possible = True
         else:
             # only calculate not_reserved_capacity if not already calculated for negative FCR
             if not_reserved_counter != 1: 
-                logging.error("Positive reservation NOT possible (and negative reservation not given penalty yet) for slot " + str(slot) + "and timestep " + str(time_step))
+                logging.debug("Positive reservation NOT possible (and negative reservation not given penalty yet) for slot " + str(slot) + "and timestep " + str(time_step))
 
                 not_reserved_capacity += abs(agent_bid_size - available_vpp_capacity)
                 #not_reserved_capacity_list.append(not_reserved_capacity)
@@ -79,6 +79,6 @@ def simulate_reservation(self, slot):
 
     
     #not_reserved_capacity_mean = sum(not_reserved_capacity_list) / len(not_reserved_capacity_list)
-    logging.error("total_not_reserved_energy for " + str(slot) + " and timestep " + str(time_step) + "is " + str(total_not_reserved_energy))
+    logging.debug("total_not_reserved_energy for slot " + str(slot) + " and timestep " + str(time_step) + " is " + str(total_not_reserved_energy))
     self.activation_results["total_not_reserved_energy"][slot] = total_not_reserved_energy
     

@@ -127,45 +127,24 @@ class VPPBiddingEnv(Env):
         self.violation_counter = 0
         self.history = None
         self.current_daily_mean_market_price = 0.
-        
-        # Slots 
-        #self.slots_won = [0, 0, 0, 0, 0, 0]
-        #self.slot_settlement_prices_DE = [0., 0., 0., 0., 0., 0.]
-        
+                
         self.activation_results = {}
         self.previous_activation_results  = {}
         
-        self.logging_step = -1
+        self.logging_step = 0
             
         # Spaces
         
-        # Observation Space
-        #obs_low = np.float32(np.array([0.0] * 96)) #96 timesteps to min 0.0
-        #obs_high = np.float32(np.array([1.0] * 96)) #96 timesteps to max 1.0
-       
-        #obs_high = np.float32(np.array([self.maximum_possible_VPP_capacity] * 96)) #96 timesteps to max 1.0
-
-        
         # Action Space
         
-        # VERSION 3
+        # VERSION 1
         # Convert complex action space to flattended space
-        
-        # maximum possible FCR capacity 
-        #maximum_possible_FCR_capacity = round(self.asset_data_FCR_total.max(),2)
-        #maximum_possible_market_price = self.bids_df["settlement_price"].max()
-        
-        #TODO: DELETE NEXT LINE 
-        #maximum_possible_market_price = 100.0
-        
+                        
         # 12 values from  min 0.0
         action_low = np.float32(np.array([-1.0] * 12)) 
         # 6 values to max maximum_possible_FCR_capacity = the bid sizes 
         # 6 values to max maximum_possible_market_price = the bid prices
-        #action_high = np.float32(np.array([maximum_possible_FCR_capacity] * 6 + [maximum_possible_market_price] *6 )) 
-        #action_high = np.float32(np.array([self.maximum_possible_VPP_capacity] * 6 + [maximum_possible_market_price] *6 )) 
         action_high = np.float32(np.array([1.0] * 6 + [1.0] * 6 )) 
-
         self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
         
         # VERSION 2 : Box 
@@ -181,7 +160,7 @@ class VPPBiddingEnv(Env):
         action_high = np.float32(np.array([1.0] * 150 + [100.0]*6)) 
         self.action_space = Box(low=action_low, high=action_high, shape=(156,), dtype=np.float32)'''
 
-        # VERSION 1
+        # VERSION 3
         
         
         '''
@@ -251,7 +230,9 @@ class VPPBiddingEnv(Env):
         self.slot_settlement_prices_DE_scaler = MinMaxScaler(feature_range=(-1,1))
         self.slot_settlement_prices_DE_scaler.fit(np.array([0.0, 4257.07]).reshape(-1, 1))
         
-         # Create a observation space with all observations inside
+        # Observation Space
+
+        # Create a observation space with all observations inside
         self.observation_space = Dict({
             "asset_data_historic": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
             "asset_data_forecast": Box(low=-1.0, high=1.0,  shape=(96,), dtype=np.float32),
@@ -386,8 +367,7 @@ class VPPBiddingEnv(Env):
         self.initial = False
         
         self.logging_step += 1
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " logging_step: " + str(self.logging_step))
-        #print(("-" * 10 )+ "reset done" + ("-" * 10 ) )
+        logging.error("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " logging_step: " + str(self.logging_step))
         
         return observation
     
@@ -421,12 +401,6 @@ class VPPBiddingEnv(Env):
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.market_end = " + str(self.market_end))
 
         self.slot_date_list = self.tenders_df[self.market_start:][0:6].index
-        
-        '''self.slot_date_list = []
-        slot_date = self.market_start 
-        for i in range(0,6):
-            self.slot_date_list.append(str(slot_date))
-            slot_date = slot_date + pd.offsets.DateOffset(hours=4)  '''
             
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.slot_date_list = " + str( self.slot_date_list))
     
@@ -491,7 +465,10 @@ class VPPBiddingEnv(Env):
         # calculate reward from state and action 
         step_reward, step_profit = calculate_reward(self)
         
+        # update total reward
         self.total_reward += step_reward
+        # Update the total profit
+        self.total_profit += step_profit    
             
         info = dict(
             bid_submission_time = str(self.bid_submission_time),
@@ -502,7 +479,6 @@ class VPPBiddingEnv(Env):
         )
         
         self._update_history(info)
-                
         self.done = True
         
         observation = get_observation(self)
@@ -511,41 +487,52 @@ class VPPBiddingEnv(Env):
         if self.env_type != "test":
             
             if self.env_type == "training":
-                wandb.log({
-                    "global_step": self.logging_step,
-                    "total_reward": self.total_reward,
-                    "total_profit": self.total_profit,
-                    "step_reward": step_reward,
-                    "step_profit": step_profit},
-                    #step=self.logging_step,
-                    commit=False)
+               
+                if self.render_mode == "fast_training":
+                    # logs need to be committed here as they wont be commited in render()
+                    wandb.log({
+                        "global_step": self.logging_step,
+                        "total_reward": self.total_reward,
+                        "total_profit": self.total_profit,
+                        "step_reward": step_reward,
+                        "step_profit": step_profit},
+                        #step=self.logging_step,
+                        commit=True)
+                
+                if self.render_mode == "human":
+                    # dont commit the logs to wandb, as logs are committed in render funciton
+                    wandb.log({
+                        "global_step": self.logging_step,
+                        "total_reward": self.total_reward,
+                        "total_profit": self.total_profit,
+                        "step_reward": step_reward,
+                        "step_profit": step_profit},
+                        #step=self.logging_step,
+                        commit=False)
                 
             if self.render_mode == "human":
-                self.render()
+                self.render(mode="human")
             
             if self.env_type == "eval":
-                wandb.log({
-                    "global_step": self.logging_step,
-                    "total_reward": self.total_reward,
-                    "total_profit": self.total_profit,
-                    "step_reward": step_reward,
-                    "step_profit": step_profit},
-                    #step=self.logging_step,
-                    commit=False
-                )
+                
+                if self.render_mode == "human":
+                    wandb.log({
+                        "global_step": self.logging_step,
+                        "total_reward": self.total_reward,
+                        "total_profit": self.total_profit,
+                        "step_reward": step_reward,
+                        "step_profit": step_profit},
+                        #step=self.logging_step,
+                        commit=False
+                    )
                         
         return observation, step_reward, self.done, info
     
     
-    def render(self): 
-        render(self)        
+    def render(self, mode="human"): 
+        render(self, mode="human")        
         
-    
-    def _update_profit(self, step_profit):
-        self.total_profit += step_profit
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"  + " self.total_profit = " + str(self.total_profit))
         
-    
     def _update_history(self, info):
         if not self.history:
             self.history = {key: [] for key in info.keys()}
