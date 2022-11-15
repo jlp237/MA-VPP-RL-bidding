@@ -136,3 +136,4 @@ iframe_figures/
 runs/
 wandb/
 models/
+.vscode/settings.json

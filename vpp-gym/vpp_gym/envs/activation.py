@@ -54,7 +54,7 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
             weights=   [0.74, 0.18, 0.05, 0.02, 0.007, 0.001, 0.001, 0.001],
             k=1
         )
-
+    capacity_to_deliver = 0. 
     capacity_to_deliver = max_activation_share[0] * agent_bid_size
 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 2: agent_bid_size : " + str(agent_bid_size))
@@ -63,10 +63,10 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
     
     # 3. Probability of successfull activation (100%: 10% of HPP Capacity = Probability Curve)
 
-    mean = 0 # symmetrical normal distribution at 0 
+    mean = 0. # symmetrical normal distribution at 0 
     sd = self.maximum_possible_VPP_capacity/7
 
-    max_at_10_percent = norm.pdf(self.maximum_possible_VPP_capacity*0.1,mean,sd)
+    max_at_10_percent = norm.pdf((self.maximum_possible_VPP_capacity*0.1),mean,sd)
     scale_factor = 1 / max_at_10_percent
 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 3: max_at_10_percent = " + str(max_at_10_percent))
@@ -76,8 +76,7 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
     #x_axis = np.arange(-max_power, max_power, 0.001)
     #plt.plot(x_axis, (norm.pdf(x_axis, mean, sd)) * scale_factor + shift_to_100)
     #plt.show()
-
-    propab_of_activation = round((norm.pdf(capacity_to_deliver, mean,sd) * scale_factor),3)
+    propab_of_activation = round(float(norm.pdf(x=capacity_to_deliver, loc=mean,scale=sd) * scale_factor),3)
 
     if propab_of_activation > 1.0: 
         propab_of_activation =  1.0

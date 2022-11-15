@@ -1,10 +1,8 @@
 # Basics
 import os
-import warnings
 
 # Data 
 import pandas as pd
-from pandas.core.common import SettingWithCopyWarning
 import numpy as np
 import json
 from sklearn.preprocessing import MinMaxScaler
@@ -25,8 +23,6 @@ from .market import simulate_market
 from .vpp import configure_vpp, simulate_vpp
 from .observation import get_observation
 
-# Auxiliary 
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 class VPPBiddingEnv(Env):
     metadata = {"render_modes": ["human", "fast_training"]}
@@ -42,6 +38,9 @@ class VPPBiddingEnv(Env):
         while logger.hasHandlers():
                 logger.removeHandler(logger.handlers[0])
         
+        logger.setLevel(log_level)
+        fhandler = logging.StreamHandler()
+        
         if env_type == "training":
             self.env_type = "training"
             os.remove("logs/training.log")
@@ -52,10 +51,8 @@ class VPPBiddingEnv(Env):
             fhandler = logging.FileHandler(filename='logs/eval.log', mode='w')
         if env_type == "test":
             self.env_type = "test"
-            fhandler = logging.StreamHandler()
-            
+        
         logger.addHandler(fhandler)           
-        logger.setLevel(log_level)
         
         logging.debug("log_step: " + str("initial") + " // slot: " +  "initial " + " log level = debug")
         logging.info("log_step: " + str("initial") + " // slot: " +  "initial " + " log level = info")
@@ -124,10 +121,18 @@ class VPPBiddingEnv(Env):
         self.done = None
         self.total_reward = 0.
         self.total_profit = 0.
+        self.total_profit_monthly = 0.
         self.violation_counter = 0
         self.history = None
         self.current_daily_mean_market_price = 0.
-                
+        self.real_month = self.first_slot_date_start.month
+        self.penalty_month_count = 1
+        self.month_change = False
+        
+        self.monthly_penalty = 0
+        self.monthly_revenue = 0
+        self.monthly_profit = 0
+        
         self.activation_results = {}
         self.previous_activation_results  = {}
         
@@ -145,12 +150,17 @@ class VPPBiddingEnv(Env):
         # 6 values to max maximum_possible_FCR_capacity = the bid sizes 
         # 6 values to max maximum_possible_market_price = the bid prices
         action_high = np.float32(np.array([1.0] * 6 + [1.0] * 6 )) 
-        self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
         
+        convert_array_to_float = np.vectorize(self._convert_number_to_float)
+        action_low = convert_array_to_float(action_low)
+        action_high = convert_array_to_float(action_high)
+        
+        self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
+
         # VERSION 2 : Box 
         
         '''# Convert complex action space to flattended space
-        # bid sizes =  6 DISCRETE slots from 0 to 25  = [ 25, 25, 25, 25, 25 , 25]  = in flattened = 150 values [0,1]
+        # bid sizes =  6 DISCRETE slots from 0 to 25  = [ 2s5, 25, 25, 25, 25 , 25]  = in flattened = 150 values [0,1]
         # bid prizes = 6 CONTINUOUS slots from 0 to 100  = [ 100., 100., 100., 100., 100. , 100.]  = in flattened = 150 values [0,1]
 
         # 156 values from  min 0.0
@@ -195,16 +205,16 @@ class VPPBiddingEnv(Env):
         
         ### Normalization of Action Space 
         self.size_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.size_scaler.fit(self.asset_data_total.values.reshape(-1, 1))
+        self.size_scaler.fit(np.array(self.asset_data_total.values).reshape(-1, 1))
         logging.debug("Action Space Normalization: size_scaler min = " + str(self.size_scaler.data_min_) + " and max = " + str(self.size_scaler.data_max_))
         
         self.price_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.price_scaler.fit(self.bids_df["settlement_price"].values.reshape(-1, 1))
+        self.price_scaler.fit(np.array(self.bids_df["settlement_price"].values).reshape(-1, 1))
         logging.debug("Action Space Normalization: price_scaler min = " + str(self.price_scaler.data_min_) + " and max = " + str(self.price_scaler.data_max_))
         
         ### Normalization of Observation Space
         self.asset_data_historic_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.asset_data_historic_scaler.fit(self.asset_data_total.values.reshape(-1, 1))
+        self.asset_data_historic_scaler.fit(np.array(self.asset_data_total.values).reshape(-1, 1))
         
         noisy_asset_data_forecast_for_fit = self._add_gaussian_noise(self.asset_data_total.to_numpy(dtype=np.float32), self.asset_data_total.to_numpy(dtype=np.float32))
         self.noisy_asset_data_forecast_scaler = MinMaxScaler(feature_range=(-1,1))
@@ -213,13 +223,13 @@ class VPPBiddingEnv(Env):
         # predicted_market_prices_scaler not needed, as self.price_scaler from action space can be used 
         
         self.weekday_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.weekday_scaler.fit(self.time_features_df["weekday"].values.reshape(-1, 1))
+        self.weekday_scaler.fit(np.array(self.time_features_df["weekday"].values).reshape(-1, 1))
         
         self.week_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.week_scaler.fit(self.time_features_df["week"].values.reshape(-1, 1))
+        self.week_scaler.fit(np.array(self.time_features_df["week"].values).reshape(-1, 1))
 
         self.month_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.month_scaler.fit(self.time_features_df["month"].values.reshape(-1, 1))
+        self.month_scaler.fit(np.array(self.time_features_df["month"].values).reshape(-1, 1))
 
         self.bool_scaler = MinMaxScaler(feature_range=(-1,1))
         self.bool_scaler.fit(np.array([0,1]).reshape(-1, 1))
@@ -351,11 +361,21 @@ class VPPBiddingEnv(Env):
         self.activation_results["reserved_slots"] = [None, None, None, None, None, None]
         self.activation_results["delivered_slots"] = [None, None, None, None, None, None]
         
+        if self.month_change: 
+            self.monthly_penalty = 0
+            self.monthly_revenue = 0
+            self.monthly_profit = 0
+        self.month_change = False
         # reset for each episode 
         self._get_new_timestamps()
         
-        self.current_daily_mean_market_price = self.market_prices_df.iloc[self.market_prices_df.index.get_indexer([self.market_end], method='nearest')]['price_DE'].values[0]
-
+        # get time stamp index that is nearest to market end 
+        market_end_date_index = self.market_prices_df.index.get_indexer([self.market_end], method='nearest')
+        # get price df
+        market_price_df =  self.market_prices_df.iloc[market_end_date_index]
+        # get the price value
+        self.current_daily_mean_market_price = market_price_df['price_DE'].values[0]  # type: ignore
+                
         # get new observation
         observation = get_observation(self)
         
@@ -384,24 +404,34 @@ class VPPBiddingEnv(Env):
                 
     
     def _get_new_timestamps(self):
-                
+                        
         self.historic_data_start = self.bid_submission_time - pd.offsets.DateOffset(days=self.hist_window_size)
         self.historic_data_end =  self.bid_submission_time - pd.offsets.DateOffset(minutes = 15)
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.historic_data_start = " + str(self.historic_data_start))
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.historic_data_end = " + str(self.historic_data_end))
         
         self.forecast_start = self.slot_start
-        self.forecast_end = self.forecast_start + pd.offsets.DateOffset(days=self.forecast_window_size) - pd.offsets.DateOffset(minutes=15) 
+        self.forecast_end = self.forecast_start + pd.offsets.DateOffset(days=self.forecast_window_size) - pd.offsets.DateOffset(minutes=15)   # type: ignore
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.forecast_start = " + str(self.forecast_start))
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.forecast_end = " + str(self.forecast_end))
 
         self.market_start = self.slot_start
-        self.market_end = self.market_start + pd.offsets.DateOffset(hours=24) - pd.offsets.DateOffset(minutes = 15)
+        self.market_end = self.market_start + pd.offsets.DateOffset(hours=24) - pd.offsets.DateOffset(minutes = 15)  # type: ignore
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.market_start = " + str(self.market_start))
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.market_end = " + str(self.market_end))
 
         self.slot_date_list = self.tenders_df[self.market_start:][0:6].index
-            
+        
+        logging.debug("self.real_month" + str(self.real_month))
+        logging.debug("self.slot_start.month" + str(self.slot_start.month))  # type: ignore
+       
+        if self.real_month != self.slot_start.month:  # type: ignore
+            self.month_change = True
+            self.real_month =  self.slot_start.month # type: ignore
+            self.penalty_month_count += 1
+          
+            logging.debug("self.penalty_month_count" + str(self.penalty_month_count))
+
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.slot_date_list = " + str( self.slot_date_list))
     
     
@@ -469,13 +499,14 @@ class VPPBiddingEnv(Env):
         self.total_reward += step_reward
         # Update the total profit
         self.total_profit += step_profit    
-            
+        
         info = dict(
             bid_submission_time = str(self.bid_submission_time),
-            step_reward = round(step_reward,2),
-            step_profit = round(step_profit,2),
-            total_reward = round(self.total_reward,2),
-            total_profit = round(self.total_profit,2)
+            step_reward = round(float(step_reward),2),  # type: ignore
+            step_profit = round(step_profit,2), # type: ignore
+            total_reward = round(self.total_reward,2), # type: ignore
+            total_profit = round(self.total_profit,2), # type: ignore
+            total_profit_monthly = round(self.total_profit_monthly,2) # type: ignore
         )
         
         self._update_history(info)
@@ -484,29 +515,32 @@ class VPPBiddingEnv(Env):
         observation = get_observation(self)
         info_NEW = self._get_info()
         
-        if self.env_type != "test":
+        if self.env_type != "test": 
+            # define basic logging dict
+            logging_dict = {
+                "global_step": self.logging_step,
+                "total_reward": self.total_reward,
+                "total_profit": self.total_profit,
+                "step_reward": step_reward,
+                "step_profit": step_profit}
             
             if self.env_type == "training":
                
                 if self.render_mode == "fast_training":
+                    
+                    if self.month_change:
+                        logging_dict = self._log_value_on_month_change(logging_dict)
+
                     # logs need to be committed here as they wont be commited in render()
-                    wandb.log({
-                        "global_step": self.logging_step,
-                        "total_reward": self.total_reward,
-                        "total_profit": self.total_profit,
-                        "step_reward": step_reward,
-                        "step_profit": step_profit},
+                    wandb.log(logging_dict,
                         #step=self.logging_step,
                         commit=True)
                 
                 if self.render_mode == "human":
+                    if self.month_change:
+                        logging_dict = self._log_value_on_month_change(logging_dict)
                     # dont commit the logs to wandb, as logs are committed in render funciton
-                    wandb.log({
-                        "global_step": self.logging_step,
-                        "total_reward": self.total_reward,
-                        "total_profit": self.total_profit,
-                        "step_reward": step_reward,
-                        "step_profit": step_profit},
+                    wandb.log(logging_dict,
                         #step=self.logging_step,
                         commit=False)
                 
@@ -516,12 +550,10 @@ class VPPBiddingEnv(Env):
             if self.env_type == "eval":
                 
                 if self.render_mode == "human":
-                    wandb.log({
-                        "global_step": self.logging_step,
-                        "total_reward": self.total_reward,
-                        "total_profit": self.total_profit,
-                        "step_reward": step_reward,
-                        "step_profit": step_profit},
+                    if self.month_change:
+                        logging_dict = self._log_value_on_month_change(logging_dict)
+
+                    wandb.log(logging_dict,
                         #step=self.logging_step,
                         commit=False
                     )
@@ -530,7 +562,7 @@ class VPPBiddingEnv(Env):
     
     
     def render(self, mode="human"): 
-        render(self, mode="human")        
+        render(self, mode=mode)        
         
         
     def _update_history(self, info):
@@ -540,3 +572,27 @@ class VPPBiddingEnv(Env):
         for key, value in info.items():
             self.history[key].append(value)
         
+    def _log_value_on_month_change(self, logging_dict):
+        
+        logging_dict["monthly_penalty"] = self.monthly_penalty
+        logging_dict["monthly_revenue"] = self.monthly_revenue
+        if abs(self.monthly_penalty) > self.monthly_revenue:
+            self.monthly_penalty = - (self.monthly_revenue)
+        self.monthly_profit = self.monthly_revenue - abs(self.monthly_penalty)
+        self.total_profit_monthly += self.monthly_profit
+        logging_dict["monthly_profit"] = self.monthly_profit
+        logging_dict["penalty_month_count"] = self.penalty_month_count
+        logging_dict["total_profit_monthly"] = self.total_profit_monthly
+
+        logging.debug("self.month_change = True")
+        logging.debug("self.monthly_penalty = " + str(self.monthly_penalty))
+        logging.debug("self.monthly_revenue = " + str(self.monthly_revenue))
+        logging.debug("self.monthly_profit = " + str(self.monthly_profit))
+        logging.debug("self.total_profit_monthly = " + str(self.total_profit_monthly))
+        logging.debug("self.penalty_month_count = " + str(self.penalty_month_count))
+        
+        return logging_dict
+    
+    
+    def _convert_number_to_float(self, x): 
+        return np.float32(x)

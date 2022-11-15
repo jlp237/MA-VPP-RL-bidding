@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 import pandas as pd
+from typing import List
 
 
 def render(self, mode="human"):
@@ -117,8 +118,8 @@ def list_generator(list_true):
         _type_: _description_
     """    
     
-    list_false = [None,None,None,None,None,None]
-    list_none = [None,None,None,None,None,None]
+    list_false: List[int] = [0,0,0,0,0,0]
+    list_none: List[int] = [0,0,0,0,0,0]
     
     for slot in range(6):
         if list_true[slot] == 1:

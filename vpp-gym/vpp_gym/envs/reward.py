@@ -39,8 +39,8 @@ def calculate_reward(self):
         
         # total_weighted_step_reward = total_step_reward / 6
         
-    step_profit = 0
-    total_step_reward = 0    
+    step_profit: float = 0.
+    total_step_reward: float = 0.
     
     logging.info("log_step: " + str(self.logging_step) + " slot: " +  "None" + " Reward Overview:")
     logging.info("log_step: " + str(self.logging_step) + " slot: " +  "None" + " self.activation_results['slots_won']: " + str(self.activation_results["slots_won"]))
@@ -138,6 +138,7 @@ def calculate_reward(self):
             logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " basic_compensation: " + str(basic_compensation))
             #step_reward += basic_compensation
             slot_profit += basic_compensation
+            self.monthly_revenue += basic_compensation
             
             # Step 3.1: simulate reservation: validate if the VPP can reserve the traded capacity
             simulate_reservation(self, slot)
@@ -159,6 +160,7 @@ def calculate_reward(self):
                 penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3] 
                 penalty_fee_reservation = self.activation_results["total_not_reserved_energy"][slot] * max(penalty_list) 
                 logging.debug("log_step: " + str(self.logging_step) + " slot: " +  str(slot)   + " penalty_fee_reservation = " + str(penalty_fee_reservation))
+                self.monthly_penalty -= penalty_fee_reservation
                 slot_profit -= penalty_fee_reservation
                 
                 # REWARD
@@ -195,6 +197,7 @@ def calculate_reward(self):
                     penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3]
                     penalty_fee_activation = self.activation_results["total_not_delivered_energy"][slot] * max(penalty_list) 
                     logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " penalty_fee_activation = " + str(penalty_fee_activation))
+                    self.monthly_penalty -= penalty_fee_activation
                     slot_profit -= penalty_fee_activation
                     
                     # Reward 
@@ -235,8 +238,8 @@ def calculate_reward(self):
     # create weighted step reward (Maximum of 1)
     total_weighted_step_reward = total_step_reward / 6
     
-    logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " total_step_reward (sum of all weighted_slot_reward ) = " + str(total_step_reward))
-    logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " total_weighted_step_reward (= total_step_reward / 6) for all 6 slots : " + str(total_weighted_step_reward))
-    logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " step_profit (sum of all slot_profit) = " + str(step_profit))
+    logging.info("log_step: " + str(self.logging_step) + " total_step_reward (sum of all weighted_slot_reward ) = " + str(total_step_reward))
+    logging.info("log_step: " + str(self.logging_step) + " total_weighted_step_reward (= total_step_reward / 6) for all 6 slots : " + str(total_weighted_step_reward))
+    logging.info("log_step: " + str(self.logging_step) + " step_profit (sum of all slot_profit) = " + str(step_profit))
 
     return total_weighted_step_reward, step_profit

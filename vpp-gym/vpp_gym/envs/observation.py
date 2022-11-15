@@ -2,6 +2,7 @@ import logging
 from collections import OrderedDict
 import numpy as np
 import pandas as pd 
+from typing import List
 
 
 def get_observation(self):
@@ -72,13 +73,16 @@ def get_observation(self):
     priorHoliday_norm = self.bool_scaler.transform(np.array(priorHoliday).reshape(-1, 1))
     priorHoliday_norm = priorHoliday_norm.flatten().astype('float32')
     
+    slots_won_list : List[int] = []
+    slot_settlement_prices_DE_list : List[float] = []
+    
     # beim ersten Trainingstep, wenn noch keine Daten vorhanden  
     if (self.initial is True):
         #print("if schleife 1 = observation nachdem action in step() geataked wurde ")
         #print("done = " + str(self.done))
         #print("initial = " + str(self.initial))
-        slots_won = [0,0,0,0,0,0]
-        slot_settlement_prices_DE = [0.,0.,0.,0.,0.,0.]
+        slots_won_list = [0,0,0,0,0,0]
+        slot_settlement_prices_DE_list = [0.,0.,0.,0.,0.,0.]
     
     # observation nach reset
     if (self.done is False) and (self.initial is False):
@@ -86,37 +90,37 @@ def get_observation(self):
         #print("done = " + str(self.done))
         #print("initial = " + str(self.initial))
                     
-        slots_won = self.previous_activation_results["slots_won"]
+        slots_won_list = self.previous_activation_results["slots_won"]
         
-        slot_settlement_prices_DE = self.previous_activation_results["slot_settlement_prices_DE"]
+        slot_settlement_prices_DE_list = self.previous_activation_results["slot_settlement_prices_DE"]
         # replace None with 0 
-        for i in range(len(slot_settlement_prices_DE)): 
-            if slot_settlement_prices_DE[i] == None: 
-                slot_settlement_prices_DE[i] = 0.0
+        for i in range(len(slot_settlement_prices_DE_list)): 
+            if slot_settlement_prices_DE_list[i] == None: 
+                slot_settlement_prices_DE_list[i] = 0.0
         
     # observation nachdem action angewendet wurde 
     if (self.done is True) and (self.initial is False):
         #print("if schleife 3 = observation nachdem action in step() geataked wurde ")
-        slots_won = self.activation_results["slots_won"].copy()
+        slots_won_list = self.activation_results["slots_won"].copy()
         
-        slot_settlement_prices_DE = self.activation_results["slot_settlement_prices_DE"]
+        slot_settlement_prices_DE_list = self.activation_results["slot_settlement_prices_DE"]
         # replace None with 0 
-        for i in range(len(slot_settlement_prices_DE)): 
-            if slot_settlement_prices_DE[i] == None: 
-                slot_settlement_prices_DE[i] = 0.0
+        for i in range(len(slot_settlement_prices_DE_list)): 
+            if slot_settlement_prices_DE_list[i] == None: 
+                slot_settlement_prices_DE_list[i] = 0.0
         
 
         
-    slots_won =  np.array(slots_won, dtype=np.int32)
+    slots_won_array =  np.array(slots_won_list, dtype=np.int32)
     #print("slots_won as array = " + str(slots_won))
-    slots_won_norm = self.list_scaler.transform(np.array(slots_won).reshape(-1, 1))
+    slots_won_norm = self.list_scaler.transform(np.array(slots_won_array).reshape(-1, 1))
     #print("slots_won_norm = " + str(slots_won_norm))
     slots_won_norm = slots_won_norm.flatten().astype('float32')
     #print("slots_won_norm (flatten) = " + str(slots_won_norm))
 
     
-    slot_settlement_prices_DE = np.array(slot_settlement_prices_DE, dtype=np.float32)
-    slot_settlement_prices_DE_norm = self.slot_settlement_prices_DE_scaler.transform((slot_settlement_prices_DE.reshape(-1, 1)))
+    slot_settlement_prices_DE_array = np.array(slot_settlement_prices_DE_list, dtype=np.float32)
+    slot_settlement_prices_DE_norm = self.slot_settlement_prices_DE_scaler.transform((slot_settlement_prices_DE_array.reshape(-1, 1)))
     #slot_settlement_prices_DE_norm = [x for xs in list(slot_settlement_prices_DE_norm) for x in xs]
     slot_settlement_prices_DE_norm = slot_settlement_prices_DE_norm.flatten().astype('float32')
     

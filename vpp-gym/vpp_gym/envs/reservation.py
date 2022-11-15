@@ -1,7 +1,7 @@
 import logging
 
 
-def simulate_reservation(self, slot):
+def simulate_reservation(self, slot: int):
     """_summary_
 
     Args:
@@ -79,6 +79,6 @@ def simulate_reservation(self, slot):
 
     
     #not_reserved_capacity_mean = sum(not_reserved_capacity_list) / len(not_reserved_capacity_list)
-    logging.debug("total_not_reserved_energy for slot " + str(slot) + " and timestep " + str(time_step) + " is " + str(total_not_reserved_energy))
+    logging.debug("total_not_reserved_energy for slot " + str(slot) + " is " + str(total_not_reserved_energy))
     self.activation_results["total_not_reserved_energy"][slot] = total_not_reserved_energy
     
