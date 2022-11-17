@@ -1,0 +1,126 @@
+@startuml classes_vpp_gym
+set namespaceSeparator none
+class "VPPBiddingEnv" as vpp_gym.envs.vpp_env.VPPBiddingEnv {
+  action_space : Box
+  activation_results : dict
+  asset_data : object
+  asset_data_FCR : object
+  asset_data_historic_scaler : MinMaxScaler
+  asset_data_total
+  bid_submission_time
+  bids_df : TextFileReader
+  bool_scaler : MinMaxScaler
+  config
+  current_daily_mean_market_price : float
+  done : bool, NoneType
+  env_type : str
+  first_slot_date_start : NoneType
+  forecast_end
+  forecast_start
+  forecast_window_size
+  gate_closure : NoneType
+  hist_window_size
+  historic_data_end
+  historic_data_start
+  history : NoneType
+  initial : bool
+  last_slot_date_end : NoneType
+  list_scaler : MinMaxScaler
+  logging_step : int
+  lower_slot_start_boundary : NoneType
+  market_end
+  market_prices_df : TextFileReader
+  market_results : TextFileReader
+  market_start
+  maximum_possible_VPP_capacity
+  mean_bid_price_germany : float
+  metadata : dict
+  month_change : bool
+  month_scaler : MinMaxScaler
+  monthly_penalty : int
+  monthly_profit : int
+  monthly_revenue : int
+  noisy_asset_data_forecast_scaler : MinMaxScaler
+  observation_space : Dict
+  penalty_month_count : int
+  previous_activation_results : dict
+  price_scaler : MinMaxScaler
+  real_month
+  render_mode : NoneType
+  renewables_df : TextFileReader
+  size_scaler : MinMaxScaler
+  slot_date_list
+  slot_settlement_prices_DE_scaler : MinMaxScaler
+  slot_start
+  tenders_df : TextFileReader
+  test_set_date_list
+  time_features_df : TextFileReader
+  total_profit : float
+  total_profit_monthly : float
+  total_reward : float
+  total_slot_FCR_demand : NoneType
+  violation_counter : int
+  week_scaler : MinMaxScaler
+  weekday_scaler : MinMaxScaler
+  render(mode)
+  reset(seed, return_info, options)
+  step(action)
+}
+class "VPPBiddingGoalEnv" as vpp_gym.envs.vpp_GoalEnv.VPPBiddingGoalEnv {
+  action_space : Box
+  asset_data : object
+  asset_data_FCR : object
+  asset_data_historic_scaler : MinMaxScaler
+  asset_data_total
+  bid_submission_time
+  bids_df : TextFileReader
+  bool_scaler : MinMaxScaler
+  config
+  current_daily_mean_market_price : float
+  delivery_results : dict
+  done : bool, NoneType
+  env_type : str
+  first_slot_date_start : NoneType
+  forecast_end
+  forecast_start
+  forecast_window_size
+  gate_closure : NoneType
+  hist_window_size
+  historic_data_end
+  historic_data_start
+  history : NoneType
+  initial : bool
+  last_slot_date_end : NoneType
+  logging_step : int
+  lower_slot_start_boundary : NoneType
+  market_end
+  market_prices_df : TextFileReader
+  market_results : TextFileReader
+  market_start
+  maximum_possible_VPP_capacity
+  mean_bid_price_germany : float
+  month_scaler : MinMaxScaler
+  noisy_asset_data_forecast_scaler : MinMaxScaler
+  observation : OrderedDict, NoneType
+  observation_space : Dict
+  previous_delivery_results : dict
+  price_scaler : MinMaxScaler
+  renewables_df : TextFileReader
+  size_scaler : MinMaxScaler
+  slot_date_list
+  slot_settlement_prices_DE_scaler : MinMaxScaler
+  slot_start
+  tenders_df : TextFileReader
+  test_set_date_list
+  time_features_df : TextFileReader
+  total_profit : float
+  total_reward : float
+  total_slot_FCR_demand : NoneType
+  violation_counter : int
+  week_scaler : MinMaxScaler
+  weekday_scaler : MinMaxScaler
+  render(mode)
+  reset()
+  step(action)
+}
+@enduml
