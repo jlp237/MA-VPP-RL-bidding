@@ -359,7 +359,7 @@ class VPPBiddingEnv(Env):
         self.activation_results["slots_won"] = [None, None, None, None, None, None]
         self.activation_results["slot_settlement_prices_DE"] = [None, None, None, None, None, None]
         self.activation_results["reserved_slots"] = [None, None, None, None, None, None]
-        self.activation_results["delivered_slots"] = [None, None, None, None, None, None]
+        self.activation_results["activated_slots"] = [None, None, None, None, None, None]
         
         if self.month_change: 
             self.monthly_penalty = 0
@@ -527,7 +527,6 @@ class VPPBiddingEnv(Env):
             if self.env_type == "training":
                
                 if self.render_mode == "fast_training":
-                    
                     if self.month_change:
                         logging_dict = self._log_value_on_month_change(logging_dict)
 
@@ -543,9 +542,8 @@ class VPPBiddingEnv(Env):
                     wandb.log(logging_dict,
                         #step=self.logging_step,
                         commit=False)
-                
-            if self.render_mode == "human":
-                self.render(mode="human")
+                    
+                    self.render(mode="human")
             
             if self.env_type == "eval":
                 
@@ -557,6 +555,8 @@ class VPPBiddingEnv(Env):
                         #step=self.logging_step,
                         commit=False
                     )
+                    
+                    self.render(mode="human")
                         
         return observation, step_reward, self.done, info
     

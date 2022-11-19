@@ -16,10 +16,10 @@ def calculate_reward(self):
     # what was the revenue ?
     
     self.activation_results["total_not_reserved_energy"] = [0, 0, 0, 0, 0, 0]
-    self.activation_results["total_not_delivered_energy"] = [0, 0, 0, 0, 0, 0]
+    self.activation_results["total_not_activated_energy"] = [0, 0, 0, 0, 0, 0]
     
     # Concept: 
-    # 1 Step is 1 complete day of delivery 
+    # 1 Step is 1 complete day of activation 
     # 1 Step consists of : 
         # slot 0: slot_reward = auction_reward + reservation_reward + activation_reward
             # weighted_slot_reward = slot_reward / 3
@@ -78,7 +78,7 @@ def calculate_reward(self):
             # get minimum possible VPP Capacity for the given slot 
             vpp_total_slot_min = min(self.activation_results["vpp_total"][slot *16 : (slot+1)*16])
 
-            # IF we could have delivered power (capacity was available), then create distance reward to possible capacity
+            # IF we could have activated power (capacity was available), then create distance reward to possible capacity
             if vpp_total_slot_min > 0: 
                 
                 # as slot bid size from agent already was 0 , the distance is vpp_total_slot_min                   
@@ -88,7 +88,7 @@ def calculate_reward(self):
                 # the greater the distance the lower the reward
                 auction_reward = (1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0])**0.4) 
             
-            # IF vpp_total_slot_min == 0 , so VPP wouldnt be able to deliver any capacity the Agent was right and we reward him only with a distance reward for the price. 
+            # IF vpp_total_slot_min == 0 , so VPP wouldnt be able to activate any capacity the Agent was right and we reward him only with a distance reward for the price. 
             else: 
                 slot_settlement_price = self.activation_results["slot_settlement_prices_DE"][slot]
                 agents_bid_price = self.activation_results["agents_bid_prices"][slot]
@@ -179,13 +179,13 @@ def calculate_reward(self):
                 # give reward when capacity could be reserved
                 reservation_reward = 1
                                     
-                # Step 3.2: simulate activation: validate if the VPP can deliver the traded capacity
+                # Step 3.2: simulate activation: validate if the VPP can activate the traded capacity
                 simulate_activation(self, slot)
-                logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " self.activation_results['delivered_slots']")
-                logging.info(self.activation_results["delivered_slots"])
+                logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " self.activation_results['activated_slots']")
+                logging.info(self.activation_results["activated_slots"])
 
-                # Step 4: if the capacity can not be delivered give a high Penalty
-                if self.activation_results["delivered_slots"][slot] == -1:
+                # Step 4: if the capacity can not be activated give a high Penalty
+                if self.activation_results["activated_slots"][slot] == -1:
                     
                     # Penalty
                     penalty_fee_1 = self.current_daily_mean_market_price * 1.25
@@ -195,7 +195,7 @@ def calculate_reward(self):
                     logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " penalty_fee_2: " + str(penalty_fee_2))
                     logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " penalty_fee_3: " + str(penalty_fee_3))
                     penalty_list = [penalty_fee_1, penalty_fee_2, penalty_fee_3]
-                    penalty_fee_activation = self.activation_results["total_not_delivered_energy"][slot] * max(penalty_list) 
+                    penalty_fee_activation = self.activation_results["total_not_activated_energy"][slot] * max(penalty_list) 
                     logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot) + " penalty_fee_activation = " + str(penalty_fee_activation))
                     self.monthly_penalty -= penalty_fee_activation
                     slot_profit -= penalty_fee_activation
@@ -215,7 +215,7 @@ def calculate_reward(self):
                     # the more stesp were successfully activated, the higher the reward
                     activation_reward = (activation_possible_count / len(joined_activation_possible_lists))**0.4
                     
-                if self.activation_results["delivered_slots"][slot] == 1:
+                if self.activation_results["activated_slots"][slot] == 1:
                     # give reward when capacity could be activated
                     activation_reward = 1
             

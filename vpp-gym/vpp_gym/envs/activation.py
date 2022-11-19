@@ -22,10 +22,10 @@ def prepare_activation(self):
     
     # initialize slots dict
     self.activation_results["reserved_slots"] = [0,0,0,0,0,0]
-    self.activation_results["delivered_slots"] = [0,0,0,0,0,0]
+    self.activation_results["activated_slots"] = [0,0,0,0,0,0]
     self.activation_results["positive_activation_possible_list"] = [None, None, None, None, None, None]
     self.activation_results["negative_activation_possible_list"] = [None, None, None, None, None, None]
-    #self.activation_results["not_delivered_capacity"] = [None,None,None,None,None,None]
+    #self.activation_results["not_activated_capacity"] = [None,None,None,None,None,None]
            
            
 def check_activation_possible(self, agent_bid_size, vpp_total_step):
@@ -38,31 +38,34 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
     Returns:
         _type_: _description_
     """    
-    # assumption: mean activation length: 30 Seconds 
     # assumption: mean number of deliveries per hour: every 60 seconds = once every minute
+    # assumption: mean activation length: 30 Seconds 
     # assumption: positive and negative : 50 % / 50% = per 15 minutes:  
-        #  7,5 times * 30 Seconds positive FCR 
-        #  7,5 times * 30 Seconds negative FCR 
+        #  7.5 times * 30 Seconds positive FCR 
+        #  7.5 times * 30 Seconds negative FCR 
         
-    not_delivered_capacity = 0
-    not_delivered_energy = 0
+    not_activated_capacity = 0
+    not_activated_energy = 0
 
-    # 2. Probability of maximum activation Amount (74 % :  0 - 5 %  Capacity , 18 % : 5 - 10 % , 5% : 10-15% ( 97%: max 15 %)
+    # 2. Probability of maximum activation Amount (67,5 % :  0 - 5 %  Capacity , 23 % : 5 - 10 % , 6% : 10-15% and so on 
 
     max_activation_share = random.choices(
             population=[0.05, 0.1,  0.15, 0.2,  0.25,  0.5,   0.75,   1.0],
-            weights=   [0.74, 0.18, 0.05, 0.02, 0.007, 0.001, 0.001, 0.001],
+            weights=[0.675, 0.23, 0.06, 0.02, 0.01, 0.002, 0.002, 0.001],
             k=1
         )
-    capacity_to_deliver = 0. 
-    capacity_to_deliver = max_activation_share[0] * agent_bid_size
+    capacity_to_activate = 0. 
+    capacity_to_activate = max_activation_share[0] * agent_bid_size
 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 2: agent_bid_size : " + str(agent_bid_size))
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 2: max_activation_share : " + str(max_activation_share[0]))
-    logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 2: capacity_to_deliver : " + str(capacity_to_deliver))
+    logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 2: capacity_to_activate : " + str(capacity_to_activate))
     
     # 3. Probability of successfull activation (100%: 10% of HPP Capacity = Probability Curve)
 
+    '''
+    ### First approach with complex norm distribution function 
+    
     mean = 0. # symmetrical normal distribution at 0 
     sd = self.maximum_possible_VPP_capacity/7
 
@@ -76,7 +79,7 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
     #x_axis = np.arange(-max_power, max_power, 0.001)
     #plt.plot(x_axis, (norm.pdf(x_axis, mean, sd)) * scale_factor + shift_to_100)
     #plt.show()
-    propab_of_activation = round(float(norm.pdf(x=capacity_to_deliver, loc=mean,scale=sd) * scale_factor),3)
+    propab_of_activation = round(float(norm.pdf(x=capacity_to_activate, loc=mean,scale=sd) * scale_factor),3)
 
     if propab_of_activation > 1.0: 
         propab_of_activation =  1.0
@@ -90,49 +93,71 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
         )
     activation_possible = activation_possible[0] # as bool is in list 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 3: activation_possible : " + str(activation_possible))
+    '''
+    
+    ### Second approach: take reliability from paper
+    logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " Check No. 3")
+    
+    ######################################
+    
+    # 3. Probability of successfull activation
+    
+    # Activation is possible based on available capacity. 
+    # Based on the paper of Seidel and Haase we decide finally if the activaiton is 
+    # possible based on their researched probability distribution for a VPP constisting of HPPs
+    propab_of_activation = 0.995
+    not_activated_capacity = capacity_to_activate * propab_of_activation
+
+
+    ######################################
+    # Activation is possible based on available capacity. 
+    # Based on the paper of Seidel and Haase we decide finally if the activaiton is 
+    # possible based on their researched probability distribution for a VPP constisting of HPPs
+    propab_of_activation = 0.995
+    activation_possible = random.choices(
+                population=[True, False],
+                weights=   [propab_of_activation , (1-propab_of_activation)],
+                k=1
+            )
+    activation_possible = activation_possible[0]
+    logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 3: activation_possible : " + str(activation_possible))
     
     # 4. Check VPP Boundaries: In case of a very high or low operating point (nearly 100% or 0% power output of the HPP): 
     # then the activation is not possible. 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " Check No. 4")
-    # check if probability of activation is high and capacity could be deliverd
-    if activation_possible == True:
-        # when negative FCR : 
-        if capacity_to_deliver < 0:
-            # check if capacity_to_deliver is bigger than vpp_total_step
-            if (vpp_total_step - abs(capacity_to_deliver)) < 0:
-                logging.error("Check No. 4: Error, vpp_total_step is small and cant do more negative FCR")
-                not_delivered_capacity += abs((vpp_total_step - abs(capacity_to_deliver)))
-                # not_delivered_capacity = MW
-                # 0.5/60 = 30Seconds 
-                # multiplied = MWh
-                # 7.5 = only for negative FCR = half of 15minutes , other half for positive FCR.  
-                not_delivered_energy = 7.5 * (not_delivered_capacity * 0.5/60)  # multiply power with time to get energy 
 
-                activation_possible = False
-        # if positive FCR
-        else:
-            # positive FCR is already included in vpp_total_step, so it should be possible
-            '''# if the plant is already at maximum limit, then it cant produce more
-            if (vpp_total_step + capacity_to_deliver) > self.maximum_possible_VPP_capacity: 
-                logging.error("Error, FCR is larger than maximum_possible_VPP_capacity")
-                not_delivered_capacity
-                activation_possible = False'''
-            # if the plant cant produce any power then positive FCR is also not possible
-            if capacity_to_deliver >= vpp_total_step:
-                logging.error("Check No. 4: Error, FCR is larger than vpp_total_step")
-                not_delivered_capacity += capacity_to_deliver - vpp_total_step
-                logging.error("Check No. 4: not_delivered_capacity = " + str(not_delivered_capacity))
-                # not_delivered_capacity = MW
-                # 0.5/60 = 30Seconds 
-                # multiplied = MWh
-                # 7.5 = only for positive FCR = half of 15minutes , other half for negative FCR.  
-                not_delivered_energy = 7.5 * (not_delivered_capacity * 0.5/60)  # multiply power with time to get energy 
-
-                activation_possible = False
-                
+    if activation_possible: 
+        # check if capacity could be activated
+        # check if absolute capacity_to_activate is bigger than vpp_total_step
+        # abs for negative and positive FCR
+        if abs(capacity_to_activate) > vpp_total_step:
+            if capacity_to_activate < 0: 
+                logging.error("Check No. 4: Error, no negative FCR possible, vpp_total_step is small and cant do more negative FCR")
+            else: 
+                logging.error("Check No. 4: Error, no positive FCR possible, FCR is larger than vpp_total_step")
+            # calculate not activated capacity for reward calcutlation
+            not_activated_capacity = abs((vpp_total_step - abs(capacity_to_activate)))
+            # not_activated_capacity = MW
+            # * 0.5 / 60 = 30 Seconds 
+            # multiplied = MWh
+            # 7.5 = only for negative FCR = half of 15minutes , other half for positive FCR.  
+            not_activated_energy = 7.5 * (not_activated_capacity * 0.5/60)  # multiply power with time to get energy 
+            activation_possible = False          
+    # If activation not possible based on probability distribution
+    else: 
+        # for positive AND negative FCR
+        logging.error("Check No. 4: Error, probability of activaiton with 0.5 percent said activation not possible ")
+        not_activated_capacity = abs(capacity_to_activate)
+        # not_activated_capacity = MW
+        # * 0.5 / 60 = 30 Seconds 
+        # multiplied = MWh
+        # 7.5 = only for negative FCR = half of 15minutes , other half for positive FCR.  
+        not_activated_energy = 7.5 * (not_activated_capacity * 0.5/60)  # multiply power with time to get energy 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"   + " check No. 4: activation_possible : " + str(activation_possible))
-        
-    return activation_possible, not_delivered_energy
+    logging.error("Check No. 4: not_activated_capacity = " + str(not_activated_capacity))
+    logging.error("Check No. 4: not_activated_energy = " + str(not_activated_energy))
+    
+    return activation_possible, not_activated_energy
 
 
 def simulate_activation(self, slot): 
@@ -154,7 +179,7 @@ def simulate_activation(self, slot):
     activation_possible = None
     positive_activation_possible_list = []
     negative_activation_possible_list = []
-    total_not_delivered_energy = 0.
+    total_not_activated_energy = 0.
 
     # check for every timestep
     for time_step in range(0, 16):
@@ -166,27 +191,28 @@ def simulate_activation(self, slot):
 
         # check if positive FCR could be provided 
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  str(slot)   + " check positive FCR")
-        activation_possible, not_delivered_energy = check_activation_possible(self, agent_bid_size, vpp_total_slot[time_step])
+        activation_possible, not_activated_energy = check_activation_possible(self, agent_bid_size, vpp_total_slot[time_step])
         positive_activation_possible_list.append(activation_possible)
         if activation_possible == False:
-                total_not_delivered_energy += not_delivered_energy
+                total_not_activated_energy += not_activated_energy
 
         # check if negative FCR could be provided 
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  str(slot)   + " check negative FCR")
-        activation_possible, not_delivered_energy = check_activation_possible(self, (-agent_bid_size), vpp_total_slot[time_step])
+        activation_possible, not_activated_energy = check_activation_possible(self, (-agent_bid_size), vpp_total_slot[time_step])
         negative_activation_possible_list.append(activation_possible)
         if activation_possible == False:
-            total_not_delivered_energy += not_delivered_energy
+            total_not_activated_energy += not_activated_energy
 
     if all(positive_activation_possible_list) and all(negative_activation_possible_list): 
-        self.activation_results["delivered_slots"][slot] = 1
+        self.activation_results["activated_slots"][slot] = 1
         total_activation_possible = True
     else: 
-        self.activation_results["delivered_slots"][slot] = -1
+        self.activation_results["activated_slots"][slot] = -1
         total_activation_possible = False
         
-    self.activation_results["total_not_delivered_energy"][slot] = total_not_delivered_energy
+    self.activation_results["total_not_activated_energy"][slot] = total_not_activated_energy
     self.activation_results["positive_activation_possible_list"][slot] = positive_activation_possible_list
     self.activation_results["negative_activation_possible_list"][slot] = negative_activation_possible_list
     
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  str(slot)   + " total_activation_possible for slot " + str(slot) + " : " + str(total_activation_possible))
+    

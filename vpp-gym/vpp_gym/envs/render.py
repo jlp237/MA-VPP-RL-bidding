@@ -54,15 +54,15 @@ def render(self, mode="human"):
                
 
                 # Render Activation for each Slot 
-                slots_delivered = self.previous_activation_results["delivered_slots"]
-                logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"  + "  slots_delivered " + str(slots_delivered))
+                slots_activated = self.previous_activation_results["activated_slots"]
+                logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"  + "  slots_activated " + str(slots_activated))
                 
-                slots_delivered, slots_not_delivered, slots_not_participated = list_generator(slots_delivered)
+                slots_activated, slots_not_activated, slots_not_participated = list_generator(slots_activated)
                 
-                delivered_data = {'Delivered': slots_delivered, 'NOT Deliv.': slots_not_delivered, 'not res.': slots_not_participated}
-                delivered_df = pd.DataFrame(data=delivered_data, index=[1, 2, 3, 4, 5, 6])
-                logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"  + "  delivered_df " + str(delivered_df))
-                delivered_plot = px.bar(delivered_df,  x= delivered_df.index, y=['Delivered', 'NOT Deliv.', 'not res.'], color_discrete_sequence=[ "#2ECC71", "#E74C3C", "gainsboro"] , labels={"index": "Slot", "value": "Delivered, Not Del., not reserv."}, title="Activation per Slot")
+                activated_data = {'Activated': slots_activated, 'NOT Deliv.': slots_not_activated, 'not res.': slots_not_participated}
+                activated_df = pd.DataFrame(data=activated_data, index=[1, 2, 3, 4, 5, 6])
+                logging.debug("log_step: " + str(self.logging_step) + " slot: " +  "None"  + "  activated_df " + str(activated_df))
+                activated_plot = px.bar(activated_df,  x= activated_df.index, y=['Activated', 'NOT Activ.', 'not res.'], color_discrete_sequence=[ "#2ECC71", "#E74C3C", "gainsboro"] , labels={"index": "Slot", "value": "Activated, Not Del., not reserv."}, title="Activation per Slot")
 
 
             
@@ -86,7 +86,7 @@ def render(self, mode="human"):
                         wandb.log({
                             "Won / Loss of Slots": slots_won_plot,
                             "Reservation per Slot": reserved_plot,
-                            "Activation per Slot": delivered_plot,
+                            "Activation per Slot": activated_plot,
                             "Sold and Available Capacity" : capacity_plot,
                             "Agents and Settlement Prices per Slot" : price_plot},
                             #step=self.logging_step,
@@ -100,7 +100,7 @@ def render(self, mode="human"):
                                 "global_step": self.logging_step,
                                 "Won / Loss of Slots": slots_won_plot,
                                 "Reservation per Slot": reserved_plot,
-                                "Activation per Slot": delivered_plot,
+                                "Activation per Slot": activated_plot,
                                 "Sold and Available Capacity" : capacity_plot,
                                 "Agents and Settlement Prices per Slot" : price_plot},
                                 #step=self.logging_step,
