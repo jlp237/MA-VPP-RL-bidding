@@ -120,7 +120,6 @@ def simulate_market(self, action_dict):
 
         logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot)  + " self.activation_results['slots_won'] = ")
         logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot)  + "\n" + " \n".join("slot won: \t{}".format(k) for k in self.activation_results["slots_won"]))
-        #print("self.activation_results['slots_won'] in _simulate_market() = " + str(self.activation_results["slots_won"]))
         logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot)  + "      agents bid_size = ")
         logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot)  + "\n" + " \n".join("size: \t{}".format(round(k) )for k in action_dict["size"]))      
         logging.info("log_step: " + str(self.logging_step) + " slot: " +  str(slot)  + " self.activation_results['slot_settlement_prices_DE'] = ")

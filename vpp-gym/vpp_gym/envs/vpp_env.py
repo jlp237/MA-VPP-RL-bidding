@@ -74,8 +74,6 @@ class VPPBiddingEnv(Env):
         
         self.asset_data , self.asset_data_FCR = configure_vpp(self)
         self.asset_data_total = self.asset_data.loc[:,"Total"]
-        #self.asset_data_FCR_total = self.asset_data_FCR.loc[:,"Total"]
-        self.maximum_possible_VPP_capacity = round(self.asset_data_total.max(),2) + 0.01
         
         self.total_slot_FCR_demand = None
         self.mean_bid_price_germany = 0.
@@ -120,23 +118,26 @@ class VPPBiddingEnv(Env):
         self.initial = True
         self.done = None
         self.total_reward = 0.
+        
+        self.total_revenue = 0.
+        self.total_penalties = 0.
         self.total_profit = 0.
-        self.total_profit_monthly = 0.
-        self.violation_counter = 0
+        
+        self.total_won_count = 0
+        self.total_lost_count = 0
+        self.total_not_part_count = 0
+        self.total_res_count = 0
+        self.total_not_res_count = 0
+        self.total_activ_count = 0
+        self.total_not_activ_count = 0
+        
         self.history = None
         self.current_daily_mean_market_price = 0.
-        self.real_month = self.first_slot_date_start.month
-        self.penalty_month_count = 1
-        self.month_change = False
-        
-        self.monthly_penalty = 0
-        self.monthly_revenue = 0
-        self.monthly_profit = 0
-        
+
         self.activation_results = {}
         self.previous_activation_results  = {}
         
-        self.logging_step = 0
+        self.logging_step = -1
             
         # Spaces
         
@@ -146,10 +147,10 @@ class VPPBiddingEnv(Env):
         # Convert complex action space to flattended space
                         
         # 12 values from  min 0.0
-        action_low = np.float32(np.array([-1.0] * 12)) 
+        action_low = np.array([-1.0] * 12,  dtype=np.float32)
         # 6 values to max maximum_possible_FCR_capacity = the bid sizes 
         # 6 values to max maximum_possible_market_price = the bid prices
-        action_high = np.float32(np.array([1.0] * 6 + [1.0] * 6 )) 
+        action_high = np.array([1.0] * 6 + [1.0] * 6, dtype=np.float32)
         
         convert_array_to_float = np.vectorize(self._convert_number_to_float)
         action_low = convert_array_to_float(action_low)
@@ -205,40 +206,42 @@ class VPPBiddingEnv(Env):
         
         ### Normalization of Action Space 
         self.size_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.size_scaler.fit(np.array(self.asset_data_total.values).reshape(-1, 1))
+        self.size_scaler.fit(np.array(self.asset_data_total.values).reshape(-1, 1))  # type: ignore
         logging.debug("Action Space Normalization: size_scaler min = " + str(self.size_scaler.data_min_) + " and max = " + str(self.size_scaler.data_max_))
         
         self.price_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.price_scaler.fit(np.array(self.bids_df["settlement_price"].values).reshape(-1, 1))
+        self.price_scaler.fit(np.array(self.bids_df["settlement_price"].values).reshape(-1, 1))  # type: ignore
         logging.debug("Action Space Normalization: price_scaler min = " + str(self.price_scaler.data_min_) + " and max = " + str(self.price_scaler.data_max_))
         
         ### Normalization of Observation Space
         self.asset_data_historic_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.asset_data_historic_scaler.fit(np.array(self.asset_data_total.values).reshape(-1, 1))
+        self.asset_data_historic_scaler.fit(np.array(self.asset_data_total.values).reshape(-1, 1))  # type: ignore
         
+        '''
         noisy_asset_data_forecast_for_fit = self._add_gaussian_noise(self.asset_data_total.to_numpy(dtype=np.float32), self.asset_data_total.to_numpy(dtype=np.float32))
         self.noisy_asset_data_forecast_scaler = MinMaxScaler(feature_range=(-1,1))
         self.noisy_asset_data_forecast_scaler.fit(noisy_asset_data_forecast_for_fit.reshape(-1, 1))
+        '''
         
         # predicted_market_prices_scaler not needed, as self.price_scaler from action space can be used 
         
         self.weekday_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.weekday_scaler.fit(np.array(self.time_features_df["weekday"].values).reshape(-1, 1))
+        self.weekday_scaler.fit(np.array(self.time_features_df["weekday"].values).reshape(-1, 1))  # type: ignore
         
         self.week_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.week_scaler.fit(np.array(self.time_features_df["week"].values).reshape(-1, 1))
+        self.week_scaler.fit(np.array(self.time_features_df["week"].values).reshape(-1, 1))  # type: ignore
 
         self.month_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.month_scaler.fit(np.array(self.time_features_df["month"].values).reshape(-1, 1))
+        self.month_scaler.fit(np.array(self.time_features_df["month"].values).reshape(-1, 1))  # type: ignore
 
         self.bool_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.bool_scaler.fit(np.array([0,1]).reshape(-1, 1))
+        self.bool_scaler.fit(np.array([0,1]).reshape(-1, 1))  # type: ignore
         
         self.list_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.list_scaler.fit(np.array([-1, 0, 1]).reshape(-1, 1))
+        self.list_scaler.fit(np.array([-1, 0, 1]).reshape(-1, 1))  # type: ignore
         
         self.slot_settlement_prices_DE_scaler = MinMaxScaler(feature_range=(-1,1))
-        self.slot_settlement_prices_DE_scaler.fit(np.array([0.0, 4257.07]).reshape(-1, 1))
+        self.slot_settlement_prices_DE_scaler.fit(np.array([0.0, 4257.07]).reshape(-1, 1))  # type: ignore
         
         # Observation Space
 
@@ -327,7 +330,7 @@ class VPPBiddingEnv(Env):
                     date_to_check = str(date_to_check)[0:10]  
                     if date_to_check not in self.test_set_date_list:
                         next_date_in_test_set = False
-                        if (pd.to_datetime(date_to_check, utc=True)) > pd.to_datetime(self.test_set_date_list[-1], utc=True):
+                        if (pd.to_datetime(date_to_check, utc=True)) > pd.to_datetime(self.test_set_date_list[-1], utc=True):  # type: ignore
                             break
                     else:
                         next_date_in_test_set = True 
@@ -341,7 +344,7 @@ class VPPBiddingEnv(Env):
             logging.info("log_step: " + str(self.logging_step) + " slot: " +  "None" + " self.slot_start = " + str(self.slot_start))
             logging.info("log_step: " + str(self.logging_step) + " slot: " +  "None" + " self.bid_submission_time = " + str(self.bid_submission_time))
 
-        self.total_slot_FCR_demand = self.tenders_df[str(self.slot_start):]["total"][0] 
+        self.total_slot_FCR_demand = self.tenders_df[str(self.slot_start):]["total"][0]   # type: ignore
         self.done = False
 
         self.previous_activation_results = self.activation_results.copy()
@@ -352,20 +355,11 @@ class VPPBiddingEnv(Env):
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.previous_activation_results after clearing")
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.previous_activation_results = " + str(self.previous_activation_results))
         
-        #if self.initial == False: 
-            #print('self.previous_activation_results["slots_won"] = ' + str(self.previous_activation_results["slots_won"]))
-            #print('self.previous_activation_results["slot_settlement_prices_DE"] = ' + str(self.previous_activation_results["slot_settlement_prices_DE"]))
-
         self.activation_results["slots_won"] = [None, None, None, None, None, None]
         self.activation_results["slot_settlement_prices_DE"] = [None, None, None, None, None, None]
         self.activation_results["reserved_slots"] = [None, None, None, None, None, None]
         self.activation_results["activated_slots"] = [None, None, None, None, None, None]
         
-        if self.month_change: 
-            self.monthly_penalty = 0
-            self.monthly_revenue = 0
-            self.monthly_profit = 0
-        self.month_change = False
         # reset for each episode 
         self._get_new_timestamps()
         
@@ -421,17 +415,6 @@ class VPPBiddingEnv(Env):
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.market_end = " + str(self.market_end))
 
         self.slot_date_list = self.tenders_df[self.market_start:][0:6].index
-        
-        logging.debug("self.real_month" + str(self.real_month))
-        logging.debug("self.slot_start.month" + str(self.slot_start.month))  # type: ignore
-       
-        if self.real_month != self.slot_start.month:  # type: ignore
-            self.month_change = True
-            self.real_month =  self.slot_start.month # type: ignore
-            self.penalty_month_count += 1
-          
-            logging.debug("self.penalty_month_count" + str(self.penalty_month_count))
-
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " self.slot_date_list = " + str( self.slot_date_list))
     
     
@@ -493,69 +476,140 @@ class VPPBiddingEnv(Env):
         prepare_activation(self)
         
         # calculate reward from state and action 
-        step_reward, step_profit = calculate_reward(self)
+        step_reward, step_revenue, step_penalties, step_profit = calculate_reward(self)
         
+        # Step Metrics
+        step_won_count = self.activation_results["slots_won"].count(1)
+        step_lost_count = self.activation_results["slots_won"].count(-1)
+        step_not_part_count = self.activation_results["slots_won"].count(0)
+        
+        step_res_count = self.activation_results["reserved_slots"].count(1)
+        step_not_res_count = self.activation_results["reserved_slots"].count(-1)
+
+        step_activ_count = self.activation_results["activated_slots"].count(1)
+        step_not_activ_count = self.activation_results["activated_slots"].count(-1)
+        
+        # Calaucalte Ratios 
+        
+        step_won_ratio = step_won_count / 6
+        
+        # zero division error safety net
+        if (6 - step_not_part_count) == 0: 
+            step_res_ratio = 0 
+        else: 
+            step_res_ratio = step_res_count / (6 - step_not_part_count)
+        # zero division error safety net
+        if (6 - step_not_part_count - step_not_res_count) == 0:
+            step_activ_ratio = 0
+        else: 
+            step_activ_ratio = step_activ_count / (6 - step_not_part_count - step_not_res_count)
+
+        # Total Metrics
         # update total reward
         self.total_reward += step_reward
         # Update the total profit
+        self.total_revenue += step_revenue
+        self.total_penalties += step_penalties
         self.total_profit += step_profit    
         
+        self.total_won_count += step_won_count
+        self.total_lost_count += step_lost_count
+        self.total_not_part_count += step_not_part_count
+        
+        self.total_res_count += step_res_count
+        self.total_not_res_count += step_not_res_count
+
+        self.total_activ_count += step_activ_count
+        self.total_not_activ_count += step_not_activ_count
+
         info = dict(
-            bid_submission_time = str(self.bid_submission_time),
+            bid_submission_time = str(self.bid_submission_time),  # type: ignore
             step_reward = round(float(step_reward),2),  # type: ignore
             step_profit = round(step_profit,2), # type: ignore
+            step_revenue = round(step_revenue,2), # type: ignore
+            step_penalties = round(step_penalties,2), # type: ignore
+            
+            step_won_count = step_won_count,
+            step_lost_count = step_lost_count,
+            step_not_part_count = step_not_part_count,
+            step_res_count = step_res_count,
+            step_not_res_count = step_not_res_count,
+            step_activ_count = step_activ_count,
+            step_not_activ_count = step_not_activ_count,
+            step_won_ratio = step_won_ratio,
+            step_res_ratio = step_res_ratio,
+            step_activ_ratio = step_activ_ratio,
+            
             total_reward = round(self.total_reward,2), # type: ignore
+            total_revenue = round(self.total_revenue,2), # type: ignore
+            total_penalties = round(self.total_penalties,2), # type: ignore
             total_profit = round(self.total_profit,2), # type: ignore
-            total_profit_monthly = round(self.total_profit_monthly,2) # type: ignore
+            
+            total_won_count = self.total_won_count,
+            total_lost_count =self.total_lost_count,
+            total_not_part_count = self.total_not_part_count,
+            total_res_count = self.total_res_count,
+            total_not_res_count = self.total_not_res_count,
+            total_activ_count = self.total_activ_count, 
+            total_not_activ_count = self.total_not_activ_count,
         )
-        
+                        
         self._update_history(info)
         self.done = True
         
         observation = get_observation(self)
         info_NEW = self._get_info()
         
-        if self.env_type != "test": 
+        if self.env_type != "test":
             # define basic logging dict
             logging_dict = {
                 "global_step": self.logging_step,
-                "total_reward": self.total_reward,
-                "total_profit": self.total_profit,
                 "step_reward": step_reward,
-                "step_profit": step_profit}
+                "step_revenue": step_revenue,
+                "step_penalties": step_penalties,
+                "step_profit": step_profit,
+                
+                "step_won_count": step_won_count,
+                "step_lost_count" : step_lost_count,
+                "step_not_part_count": step_not_part_count,
+                "step_res_count" : step_res_count,
+                "step_not_res_count" : step_not_res_count,
+                "step_activ_count" : step_activ_count,
+                "step_not_activ_count" : step_not_activ_count,
+                "step_won_ratio":  step_won_ratio,
+                "step_res_ratio": step_res_ratio,
+                "step_activ_ratio":  step_activ_ratio,
+                
+                "total_reward": self.total_reward,
+                "total_revenue": self.total_revenue,
+                "total_penalties": self.total_penalties,
+                "total_profit": self.total_profit,
+                
+                "total_won_count": self.total_won_count,
+                "total_won_count": self.total_lost_count,
+                "total_not_part_count": self.total_not_part_count,
+                "total_res_count": self.total_res_count,
+                "total_not_res_count": self.total_not_res_count,
+                "total_activ_count": self.total_activ_count, 
+                "total_not_activ_count": self.total_not_activ_count
+            }
             
             if self.env_type == "training":
-               
                 if self.render_mode == "fast_training":
-                    if self.month_change:
-                        logging_dict = self._log_value_on_month_change(logging_dict)
-
                     # logs need to be committed here as they wont be commited in render()
                     wandb.log(logging_dict,
-                        #step=self.logging_step,
                         commit=True)
                 
                 if self.render_mode == "human":
-                    if self.month_change:
-                        logging_dict = self._log_value_on_month_change(logging_dict)
                     # dont commit the logs to wandb, as logs are committed in render funciton
                     wandb.log(logging_dict,
-                        #step=self.logging_step,
                         commit=False)
-                    
                     self.render(mode="human")
             
             if self.env_type == "eval":
-                
                 if self.render_mode == "human":
-                    if self.month_change:
-                        logging_dict = self._log_value_on_month_change(logging_dict)
-
                     wandb.log(logging_dict,
-                        #step=self.logging_step,
-                        commit=False
-                    )
-                    
+                        commit=False) 
                     self.render(mode="human")
                         
         return observation, step_reward, self.done, info
@@ -571,28 +625,8 @@ class VPPBiddingEnv(Env):
 
         for key, value in info.items():
             self.history[key].append(value)
-        
-    def _log_value_on_month_change(self, logging_dict):
-        
-        logging_dict["monthly_penalty"] = self.monthly_penalty
-        logging_dict["monthly_revenue"] = self.monthly_revenue
-        if abs(self.monthly_penalty) > self.monthly_revenue:
-            self.monthly_penalty = - (self.monthly_revenue)
-        self.monthly_profit = self.monthly_revenue - abs(self.monthly_penalty)
-        self.total_profit_monthly += self.monthly_profit
-        logging_dict["monthly_profit"] = self.monthly_profit
-        logging_dict["penalty_month_count"] = self.penalty_month_count
-        logging_dict["total_profit_monthly"] = self.total_profit_monthly
-
-        logging.debug("self.month_change = True")
-        logging.debug("self.monthly_penalty = " + str(self.monthly_penalty))
-        logging.debug("self.monthly_revenue = " + str(self.monthly_revenue))
-        logging.debug("self.monthly_profit = " + str(self.monthly_profit))
-        logging.debug("self.total_profit_monthly = " + str(self.total_profit_monthly))
-        logging.debug("self.penalty_month_count = " + str(self.penalty_month_count))
-        
-        return logging_dict
     
     
     def _convert_number_to_float(self, x): 
         return np.float32(x)
+    

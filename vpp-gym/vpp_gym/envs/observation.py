@@ -19,18 +19,25 @@ def get_observation(self):
     asset_data_historic_norm = self.asset_data_historic_scaler.transform((asset_data_historic.reshape(-1, 1)))
     # convert from 2D to 1D array 
     asset_data_historic_norm = asset_data_historic_norm.flatten()
-    #asset_data_historic_norm = [x for xs in list(asset_data_historic_norm) for x in xs]
 
     asset_data_forecast = self.asset_data_total[str(self.forecast_start) : str(self.forecast_end)].to_numpy(dtype=np.float32)
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " asset_data_forecast = "  + str(self.asset_data_total[str(self.forecast_start) : str(self.forecast_end)]))
+    
+    '''
     # add gaussian noise to data
     noisy_asset_data_forecast = self._add_gaussian_noise(asset_data_forecast, self.asset_data_total)
     noisy_asset_data_forecast = noisy_asset_data_forecast.astype(np.float32)
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " noisy_asset_data_forecast = "  + str(noisy_asset_data_forecast))
     noisy_asset_data_forecast_norm = self.noisy_asset_data_forecast_scaler.transform((noisy_asset_data_forecast.reshape(-1, 1)))
-    #noisy_asset_data_forecast_norm = [x for xs in list(noisy_asset_data_forecast_norm) for x in xs]
     noisy_asset_data_forecast_norm = noisy_asset_data_forecast_norm.flatten()
-
+    '''
+    
+    # use perfect foresight forecast
+    asset_data_forecast = asset_data_forecast.astype(np.float32)
+    logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " asset_data_forecast = "  + str(asset_data_forecast))
+    asset_data_forecast_norm = self.asset_data_historic_scaler.transform((asset_data_forecast.reshape(-1, 1)))
+    asset_data_forecast_norm = asset_data_forecast_norm.flatten()
+    
     # for predicted market Prices try naive prediction: retrieve price of same day last week 
     market_start_last_week = self.market_start - pd.offsets.DateOffset(days=7) 
     market_end_last_week = self.market_end - pd.offsets.DateOffset(days=7)
@@ -43,7 +50,6 @@ def get_observation(self):
         predicted_market_prices = np.array([ 17.48, 17.48, 17.48, 17.48, 17.48, 17.48], dtype=np.float32) 
         logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " predicted_market_prices list is smaller than 6 so fake is generated: "  + str(predicted_market_prices))
     predicted_market_prices_norm = self.price_scaler.transform((np.array(predicted_market_prices).reshape(-1, 1)))
-    #predicted_market_prices_norm = [x for xs in list(predicted_market_prices_norm) for x in xs]
     predicted_market_prices_norm = predicted_market_prices_norm.flatten()
     
     time_features = self.time_features_df[str(self.market_start) : str(self.market_end)]
@@ -78,20 +84,12 @@ def get_observation(self):
     
     # beim ersten Trainingstep, wenn noch keine Daten vorhanden  
     if (self.initial is True):
-        #print("if schleife 1 = observation nachdem action in step() geataked wurde ")
-        #print("done = " + str(self.done))
-        #print("initial = " + str(self.initial))
         slots_won_list = [0,0,0,0,0,0]
         slot_settlement_prices_DE_list = [0.,0.,0.,0.,0.,0.]
     
     # observation nach reset
     if (self.done is False) and (self.initial is False):
-        #print("if schleife 2 = observation nach reset und bevor action getaket wurde ")
-        #print("done = " + str(self.done))
-        #print("initial = " + str(self.initial))
-                    
         slots_won_list = self.previous_activation_results["slots_won"]
-        
         slot_settlement_prices_DE_list = self.previous_activation_results["slot_settlement_prices_DE"]
         # replace None with 0 
         for i in range(len(slot_settlement_prices_DE_list)): 
@@ -109,24 +107,18 @@ def get_observation(self):
             if slot_settlement_prices_DE_list[i] == None: 
                 slot_settlement_prices_DE_list[i] = 0.0
         
-
-        
     slots_won_array =  np.array(slots_won_list, dtype=np.int32)
-    #print("slots_won as array = " + str(slots_won))
     slots_won_norm = self.list_scaler.transform(np.array(slots_won_array).reshape(-1, 1))
-    #print("slots_won_norm = " + str(slots_won_norm))
     slots_won_norm = slots_won_norm.flatten().astype('float32')
-    #print("slots_won_norm (flatten) = " + str(slots_won_norm))
 
     
     slot_settlement_prices_DE_array = np.array(slot_settlement_prices_DE_list, dtype=np.float32)
     slot_settlement_prices_DE_norm = self.slot_settlement_prices_DE_scaler.transform((slot_settlement_prices_DE_array.reshape(-1, 1)))
-    #slot_settlement_prices_DE_norm = [x for xs in list(slot_settlement_prices_DE_norm) for x in xs]
     slot_settlement_prices_DE_norm = slot_settlement_prices_DE_norm.flatten().astype('float32')
     
     observation = OrderedDict({
         "asset_data_historic": asset_data_historic_norm,
-        "asset_data_forecast": noisy_asset_data_forecast_norm,
+        "asset_data_forecast": asset_data_forecast_norm,
         "predicted_market_prices": predicted_market_prices_norm,
         "weekday": weekday_norm, 
         "week": week_norm, 
@@ -140,8 +132,4 @@ def get_observation(self):
     
     logging.debug("log_step: " + str(self.logging_step) + " slot: " +  'None'  + " NEW Observation = "  + str(observation))
     
-    #if self.activation_results:
-        #print( 'AM ENDE VON get_obsertvation() self.activation_results["slots_won"] = ' + str( self.activation_results["slots_won"]))
-        #print("observation['slots_won'] (flatten) = " + str( observation["slots_won"]))
-
     return observation

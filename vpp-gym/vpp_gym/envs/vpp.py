@@ -53,9 +53,11 @@ def configure_vpp(self):
 
     if not asset_frames_total: 
         logging.error("No asset data found")
+    # merge dataframe list to dataframe
     all_asset_data = reduce(lambda x, y: pd.merge(x, y, on = "time"), asset_frames_total)
     all_asset_data_FCR = reduce(lambda x, y: pd.merge(x, y, on = "time"), asset_frames_FCR)
 
+    # get sum of  all single plant columns and put in total column
     all_asset_data['Total'] = all_asset_data.iloc[:,:].sum(axis=1)
     all_asset_data_FCR['Total'] = all_asset_data_FCR.iloc[:,:].sum(axis=1)
     
