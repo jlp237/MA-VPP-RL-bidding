@@ -64,7 +64,7 @@ class VPPBiddingEnv(Env):
         self.render_mode = render_mode
         
         self.training_seed = seed
-        self.seed_everything(self.training_seed)
+        self._seed_everything(self.training_seed)
 
         # data 
         self.config = self._load_config(config_path)
@@ -250,7 +250,7 @@ class VPPBiddingEnv(Env):
         
         # Observation Space
 
-        # Create a observation space with all observations inside
+        # Create a dict observation space with all observations inside
         self.observation_space = Dict({
             "asset_data_historic": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
             "asset_data_forecast": Box(low=-1.0, high=1.0,  shape=(96,), dtype=np.float32),
@@ -299,7 +299,7 @@ class VPPBiddingEnv(Env):
         Returns:
             _type_: _description_
         """
-        self.seed_everything(self.training_seed)
+        self._seed_everything(self.training_seed)
 
         if self.initial is False:
             
@@ -469,6 +469,61 @@ class VPPBiddingEnv(Env):
         # calculate reward from state and action 
         step_reward, step_revenue, step_penalties, step_profit = calculate_reward(self)
         
+        info, logging_dict = self._calculate_metrics(step_reward, step_revenue, step_penalties, step_profit)
+                        
+        self._update_history(info)
+        self.done = True
+        
+        # get the observation after action was taken (still same VPP data, but updated won slots and settlement prices)
+        observation = get_observation(self)
+        
+        if self.env_type != "test":
+            
+            if self.env_type == "training":
+                if self.render_mode == "fast_training":
+                    # logs need to be committed here as they wont be commited in render()
+                    wandb.log(logging_dict,
+                        commit=True)
+                
+                if self.render_mode == "human":
+                    # dont commit the logs to wandb, as logs are committed in render funciton
+                    wandb.log(logging_dict,
+                        commit=False)
+                    self.render(mode="human")
+            
+            if self.env_type == "eval":
+                if self.render_mode == "human":
+                    wandb.log(logging_dict,
+                        commit=False) 
+                    self.render(mode="human")
+                        
+        return observation, step_reward, self.done, info
+    
+    
+    def render(self, mode="human"): 
+        render(self, mode=mode)        
+        
+        
+    def _update_history(self, info):
+        if not self.history:
+            self.history = {key: [] for key in info.keys()}
+
+        for key, value in info.items():
+            self.history[key].append(value)
+    
+    
+    def _convert_number_to_float(self, x): 
+        return np.float32(x)
+    
+    def _seed_everything(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        self.seed(seed)
+        
+
+    def _calculate_metrics(self, step_reward, step_revenue, step_penalties, step_profit): 
+        
         # Step Metrics
         step_won_count = self.activation_results["slots_won"].count(1)
         step_lost_count = self.activation_results["slots_won"].count(-1)
@@ -544,86 +599,39 @@ class VPPBiddingEnv(Env):
             total_activ_count = self.total_activ_count, 
             total_not_activ_count = self.total_not_activ_count,
         )
-                        
-        self._update_history(info)
-        self.done = True
         
-        # get the observation after action was taken (still same VPP data, but updated won slots and settlement prices)
-        observation = get_observation(self)
-        
-        if self.env_type != "test":
-            # define basic logging dict
-            logging_dict = {
-                "global_step": self.logging_step,
-                "step_reward": step_reward,
-                "step_revenue": step_revenue,
-                "step_penalties": step_penalties,
-                "step_profit": step_profit,
-                
-                "step_won_count": step_won_count,
-                "step_lost_count" : step_lost_count,
-                "step_not_part_count": step_not_part_count,
-                "step_res_count" : step_res_count,
-                "step_not_res_count" : step_not_res_count,
-                "step_activ_count" : step_activ_count,
-                "step_not_activ_count" : step_not_activ_count,
-                "step_won_ratio":  step_won_ratio,
-                "step_res_ratio": step_res_ratio,
-                "step_activ_ratio":  step_activ_ratio,
-                
-                "total_reward": self.total_reward,
-                "total_revenue": self.total_revenue,
-                "total_penalties": self.total_penalties,
-                "total_profit": self.total_profit,
-                
-                "total_won_count": self.total_won_count,
-                "total_lost_count": self.total_lost_count,
-                "total_not_part_count": self.total_not_part_count,
-                "total_res_count": self.total_res_count,
-                "total_not_res_count": self.total_not_res_count,
-                "total_activ_count": self.total_activ_count, 
-                "total_not_activ_count": self.total_not_activ_count
-            }
+        # define basic logging dict
+        logging_dict = {
+            "global_step": self.logging_step,
+            "step_reward": step_reward,
+            "step_revenue": step_revenue,
+            "step_penalties": step_penalties,
+            "step_profit": step_profit,
             
-            if self.env_type == "training":
-                if self.render_mode == "fast_training":
-                    # logs need to be committed here as they wont be commited in render()
-                    wandb.log(logging_dict,
-                        commit=True)
-                
-                if self.render_mode == "human":
-                    # dont commit the logs to wandb, as logs are committed in render funciton
-                    wandb.log(logging_dict,
-                        commit=False)
-                    self.render(mode="human")
+            "step_won_count": step_won_count,
+            "step_lost_count" : step_lost_count,
+            "step_not_part_count": step_not_part_count,
+            "step_res_count" : step_res_count,
+            "step_not_res_count" : step_not_res_count,
+            "step_activ_count" : step_activ_count,
+            "step_not_activ_count" : step_not_activ_count,
+            "step_won_ratio":  step_won_ratio,
+            "step_res_ratio": step_res_ratio,
+            "step_activ_ratio":  step_activ_ratio,
             
-            if self.env_type == "eval":
-                if self.render_mode == "human":
-                    wandb.log(logging_dict,
-                        commit=False) 
-                    self.render(mode="human")
-                        
-        return observation, step_reward, self.done, info
-    
-    
-    def render(self, mode="human"): 
-        render(self, mode=mode)        
+            "total_reward": self.total_reward,
+            "total_revenue": self.total_revenue,
+            "total_penalties": self.total_penalties,
+            "total_profit": self.total_profit,
+            
+            "total_won_count": self.total_won_count,
+            "total_lost_count": self.total_lost_count,
+            "total_not_part_count": self.total_not_part_count,
+            "total_res_count": self.total_res_count,
+            "total_not_res_count": self.total_not_res_count,
+            "total_activ_count": self.total_activ_count, 
+            "total_not_activ_count": self.total_not_activ_count
+        }
         
-        
-    def _update_history(self, info):
-        if not self.history:
-            self.history = {key: [] for key in info.keys()}
-
-        for key, value in info.items():
-            self.history[key].append(value)
-    
-    
-    def _convert_number_to_float(self, x): 
-        return np.float32(x)
-    
-    def seed_everything(self, seed):
-        random.seed(seed)
-        np.random.seed(seed)
-        os.environ['PYTHONHASHSEED'] = str(seed)
-        self.seed(seed)
+        return info, logging_dict
         
