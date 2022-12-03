@@ -83,8 +83,9 @@ def calculate_reward_and_financials(self):
             vpp_total_slot_min = min(self.delivery_results["vpp_total"][slot * 16 : (slot + 1) * 16])
 
             # IF we could have activated power (capacity was available), then create distance reward to possible capacity
-            if vpp_total_slot_min > 0:
-
+            
+            #if vpp_total_slot_min > 0:
+            if vpp_total_slot_min >= 1: # Experiment if no cap available and agent didtn participate = high reward as he did right. 
                 # as slot bid size from agent already was 0 , the distance is vpp_total_slot_min
                 distance_to_vpp_capacity = vpp_total_slot_min
 
@@ -92,9 +93,11 @@ def calculate_reward_and_financials(self):
                 # the greater the distance the lower the reward
                 auction_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.4
 
-            # IF vpp_total_slot_min == 0 , so VPP wouldnt be able to activate any capacity the Agent was right and we reward him only with a distance reward for the price.
+            # IF vpp_total_slot_min < 1 , so VPP wouldnt be able to activate any capacity ,
+            # the Agent was right and we reward him only with a distance reward for the price.
             else:
-                slot_settlement_price = self.delivery_results["slot_settlement_prices_DE"][slot]
+                auction_reward = 1  # Experiment: auction_reward = 1 if not particeipated 
+                '''slot_settlement_price = self.delivery_results["slot_settlement_prices_DE"][slot]
                 agents_bid_price = self.delivery_results["agents_bid_prices"][slot]
                 distance_to_settlement_price = agents_bid_price - slot_settlement_price
                 logging.info("log_step: " + str(self.logging_step) + " slot: " + str(slot) + " distance_to_settlement_price = " + str(distance_to_settlement_price))
@@ -119,7 +122,7 @@ def calculate_reward_and_financials(self):
                     auction_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.4
 
                 logging.info("log_step: " + str(self.logging_step) + " slot: " + str(slot) + " auction_reward = " + str(auction_reward))
-
+                '''
         # IF AGENT WON THE SLOT
         if self.delivery_results["slots_won"][slot] == 1:
             logging.info("log_step: " + str(self.logging_step) + " slot: " + str(slot) + " slot no. " + str(slot) + " was won")

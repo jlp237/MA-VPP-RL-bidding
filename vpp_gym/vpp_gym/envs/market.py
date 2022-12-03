@@ -27,7 +27,8 @@ def simulate_market(self, action_dict):
         slot_bids_list = slot_bids.to_dict('records')
         # extract the bid size out of the agents action
         # ROUND TO FULL INTEGER
-        agents_bid_size = round(action_dict["size"][slot])
+        '''agents_bid_size = round(action_dict["size"][slot])'''
+        agents_bid_size = action_dict["size"][slot]
         self.delivery_results["agents_bid_sizes_round"][slot] = agents_bid_size
         # extract the bid price out of the agents action
         agents_bid_price = action_dict["price"][slot]

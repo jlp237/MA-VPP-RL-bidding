@@ -115,15 +115,15 @@ def get_observation(self):
 
     observation = OrderedDict(
         {
-            "asset_data_historic": asset_data_historic_norm,
+            #"asset_data_historic": asset_data_historic_norm,
             "asset_data_forecast": asset_data_forecast_norm,
             "predicted_market_prices": predicted_market_prices_norm,
             "weekday": weekday_norm,
-            "week": week_norm,
+            #"week": week_norm,
             "month": month_norm,
-            "isHoliday": isHoliday_norm,
-            "followsHoliday": followsHoliday_norm,
-            "priorHoliday": priorHoliday_norm,
+            #"isHoliday": isHoliday_norm,
+            #"followsHoliday": followsHoliday_norm,
+            #"priorHoliday": priorHoliday_norm,
             "slots_won": slots_won_norm,
             "slot_settlement_prices_DE": slot_settlement_prices_DE_norm,
         }

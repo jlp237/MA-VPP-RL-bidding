@@ -14,7 +14,7 @@ import wandb
 
 # RL
 from gym import Env
-from gym.spaces import Box, Dict
+from gym.spaces import Box, Dict, MultiDiscrete
 
 # import other python files
 from .render import render
@@ -144,29 +144,35 @@ class VPPBiddingEnv(Env):
         # Convert complex action space to flattended space
 
         # 12 values from  min 0.0
-        action_low = np.array([-1.0] * 12, dtype=np.float32)
+        #action_low = np.array([-1.0] * 12, dtype=np.float32)
         # 6 values to max maximum_possible_FCR_capacity = the bid sizes
         # 6 values to max maximum_possible_market_price = the bid prices
-        action_high = np.array([1.0] * 6 + [1.0] * 6, dtype=np.float32)
+        #action_high = np.array([1.0] * 6 + [1.0] * 6, dtype=np.float32)
 
-        convert_array_to_float = np.vectorize(self._convert_number_to_float)
-        action_low = convert_array_to_float(action_low)
-        action_high = convert_array_to_float(action_high)
+        #convert_array_to_float = np.vectorize(self._convert_number_to_float)
+        #action_low = convert_array_to_float(action_low)
+        #action_high = convert_array_to_float(action_high)
 
-        self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
+        #self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
 
-        # VERSION 2 : Box
+        
+        #size_action =  np.array([13] * 6, dtype=np.int32)
+        #price_action = np.array([491] * 6, dtype=np.int32)
+        
+        #self.action_space = MultiDiscrete(np.array([size_action, price_action]))
 
-        '''# Convert complex action space to flattended space
-        # bid sizes =  6 DISCRETE slots from 0 to 25  = [ 25, 25, 25, 25, 25 , 25]  = in flattened = 150 values [0,1]
-        # bid prizes = 6 CONTINUOUS slots from 0 to 100  = [ 100., 100., 100., 100., 100. , 100.]  = in flattened = 150 values [0,1]
+        # self.action_space = MultiDiscrete(np.array([[13, 13, 13, 13, 13, 13], [491, 491, 491, 491, 491, 491]]))
+        
+        # Version "action8": 
 
-        # 156 values from  min 0.0
-        action_low = np.float32(np.array([0.0] * 156)) 
-        #150 values to max 1.0 = the bid sizes 
-        # +6 values to max 100. = the bid prices
-        action_high = np.float32(np.array([1.0] * 150 + [100.0]*6)) 
-        self.action_space = Box(low=action_low, high=action_high, shape=(156,), dtype=np.float32)'''
+        self.action_space =  MultiDiscrete([13, 13, 13, 13, 13, 13, 491, 491, 491, 491, 491, 491])
+
+
+        # Box 1: ALL
+        # action2
+        #self.action_space =  Box(low=-1, high=1, shape=(2,6))
+
+
 
         # VERSION 3
 
@@ -242,15 +248,15 @@ class VPPBiddingEnv(Env):
         # Create a dict observation space with all observations inside
         self.observation_space = Dict(
             {
-                "asset_data_historic": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
+                #"asset_data_historic": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
                 "asset_data_forecast": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
                 "predicted_market_prices": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),  # for each slot, can be prices of same day last week
                 "weekday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(7), # for the days of the week
-                "week": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(53),  # for week of the year
+                #"week": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(53),  # for week of the year
                 "month": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(12),
-                "isHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # holiday = 1, no holiday = 0
-                "followsHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # followsHoliday = 1, no followsHoliday = 0
-                "priorHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # priorHoliday = 1, no priorHoliday = 0
+                #"isHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # holiday = 1, no holiday = 0
+                #"followsHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # followsHoliday = 1, no followsHoliday = 0
+                #"priorHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # priorHoliday = 1, no priorHoliday = 0
                 "slots_won": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),  # MultiBinary(6), #boolean for each slot, 0 if loss , 1 if won
                 "slot_settlement_prices_DE": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),
             }
@@ -423,18 +429,31 @@ class VPPBiddingEnv(Env):
             _type_: _description_
         """
 
+
+        ####################  Default action Space  ###################
         # convert action list with shape (12,) into dict
+        #bid_sizes_normalized = action[0:6]
+        #bid_prices_normalized = action[6:]
+        #bid_sizes_converted = self.size_scaler.inverse_transform(np.array(bid_sizes_normalized).reshape(-1, 1))
+        #bid_prices_converted = self.price_scaler.inverse_transform(np.array(bid_prices_normalized).reshape(-1, 1))
+       
+        ####################  for action1 and action2: Box 1  ###################
+        #bid_sizes_normalized = action[0]
+        #bid_prices_normalized = action[1]
+        #bid_sizes_converted = np.array(bid_sizes_normalized).reshape(-1, 1)
+        #bid_prices_converted = np.array(bid_prices_normalized).reshape(-1, 1)
+       
+        ####################  for action8: multi discrete  ###################
 
         bid_sizes_normalized = action[0:6]
         bid_prices_normalized = action[6:]
-
-        bid_sizes_converted = self.size_scaler.inverse_transform(np.array(bid_sizes_normalized).reshape(-1, 1))
-        bid_prices_converted = self.price_scaler.inverse_transform(np.array(bid_prices_normalized).reshape(-1, 1))
-
+        bid_sizes_converted = np.array(bid_sizes_normalized).reshape(-1, 1)
+        bid_prices_converted = np.array(bid_prices_normalized).reshape(-1, 1)
+       
+        #################### old code ###################
         # convert from 2d array to list
         bid_sizes_converted = [x for xs in list(bid_sizes_converted) for x in xs]
         bid_prices_converted = [x for xs in list(bid_prices_converted) for x in xs]
-
         action_dict = {"size": bid_sizes_converted, "price": bid_prices_converted}
 
         # Simulate VPP
