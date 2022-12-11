@@ -46,11 +46,17 @@ class VPPBiddingEnv(Env):
 
         if env_type == "training":
             self.env_type = "training"
-            os.remove("logs/training.log")
+            try:
+                os.remove("logs/training.log")
+            except OSError:
+                pass
             fhandler = logging.FileHandler(filename='logs/training.log', mode='w')
         if env_type == "eval":
             self.env_type = "eval"
-            os.remove("logs/eval.log")
+            try:
+                os.remove("logs/eval.log")
+            except OSError:
+                pass
             fhandler = logging.FileHandler(filename='logs/eval.log', mode='w')
         if env_type == "test":
             self.env_type = "test"
@@ -135,76 +141,49 @@ class VPPBiddingEnv(Env):
         self.delivery_results = {}
         self.previous_delivery_results = {}
         self.logging_step = -1
-
+        
         # Spaces
 
         # Action Space
-
+        
+        ##########################################################
         # VERSION 1
         # Convert complex action space to flattended space
 
         # 12 values from  min 0.0
-        #action_low = np.array([-1.0] * 12, dtype=np.float32)
+        action_low = np.array([-1.0] * 12, dtype=np.float32)
         # 6 values to max maximum_possible_FCR_capacity = the bid sizes
         # 6 values to max maximum_possible_market_price = the bid prices
-        #action_high = np.array([1.0] * 6 + [1.0] * 6, dtype=np.float32)
+        action_high = np.array([1.0] * 12, dtype=np.float32)
 
         #convert_array_to_float = np.vectorize(self._convert_number_to_float)
         #action_low = convert_array_to_float(action_low)
         #action_high = convert_array_to_float(action_high)
 
         #self.action_space = Box(low=action_low, high=action_high, shape=(12,), dtype=np.float32)
-
+        self.action_space = Box(low=action_low, high=action_high, dtype=np.float32)
+        ##########################################################
         
-        #size_action =  np.array([13] * 6, dtype=np.int32)
-        #price_action = np.array([491] * 6, dtype=np.int32)
-        
-        #self.action_space = MultiDiscrete(np.array([size_action, price_action]))
-
         # self.action_space = MultiDiscrete(np.array([[13, 13, 13, 13, 13, 13], [491, 491, 491, 491, 491, 491]]))
         
+        ##########################################################
+        
         # Version "action8": 
+        #self.action_space =  MultiDiscrete([13, 13, 13, 13, 13, 13, 491, 491, 491, 491, 491, 491])
 
-        self.action_space =  MultiDiscrete([13, 13, 13, 13, 13, 13, 491, 491, 491, 491, 491, 491])
-
-
-        # Box 1: ALL
+        ##########################################################
+        
+        # Box 1: (2,6)
         # action2
-        #self.action_space =  Box(low=-1, high=1, shape=(2,6))
-
-
-
-        # VERSION 3
-
-        '''
-        self.complex_action_space = Tuple((
-            # INFO: TSOs allow divisible and indivisible bids. Biggest divisible bid was 188 MW , maximum price was 4257.07 
-            #MultiDiscrete([ 188, 188, 188, 188, 188 , 188]),
-            MultiDiscrete([ 25, 25, 25, 25, 25 , 25]),
-            #Box(low=0.0, high=np.float32(4257.07), shape=(6,), dtype=np.float32)))
-            Box(low=0.0, high=np.float32(100.), shape=(6,), dtype=np.float32)))
+        #self.action_space = Box(low=-1.0, high=1.0, shape=(2,6), dtype=np.float32)
         
-        #flatten_action_space_64 = flatten_space(self.complex_action_space)
-        #self.action_space = flatten_action_space_64
-
+        ##########################################################
         
-        #logging.debug(flatten_action_space_64)
-        #logging.debug(type(flatten_action_space_64))
-        #logging.debug("#" *42)
-        
-        #flattened_action = flatten(self.complex_action_space, self.complex_action_space.sample())
-        #logging.debug(flattened_action)
+        # Box 2: (6,2))
+        # action3
+        #self.action_space = Box(low=-1.0, high=1.0, shape=(6,2), dtype=np.float32)
 
-        #unflattened_action = unflatten(self.complex_action_space, flattened_action)
-        #logging.debug(unflattened_action)'''
-
-        # VERSION 4: MultiDiscrete Action Space
-
-        '''
-        # bid sizes =  6 DISCRETE slots from 0 to 131  = [ 131, 131, 131, 131, 131 , 131]  
-        # bid prizes = 6 DISCRETE slots from 0 to 4257  = [ 4257, 4257, 4257, 4257, 4257 , 4257]
-        action_space = MultiDiscrete(np.array([[ 131, 131, 131, 131, 131 , 131]  , [ 4257, 4257, 4257, 4257, 4257 , 4257]]))
-        '''
+        ##########################################################
 
         ### Normalization of Action Space
         self.size_scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -224,28 +203,29 @@ class VPPBiddingEnv(Env):
         '''
 
         # predicted_market_prices_scaler not needed, as self.price_scaler from action space can be used
-
+        
         self.weekday_scaler = MinMaxScaler(feature_range=(-1, 1))
         self.weekday_scaler.fit(np.array(self.time_features_df["weekday"].values).reshape(-1, 1))  # type: ignore
-
+        '''
         self.week_scaler = MinMaxScaler(feature_range=(-1, 1))
         self.week_scaler.fit(np.array(self.time_features_df["week"].values).reshape(-1, 1))  # type: ignore
-
+        '''
         self.month_scaler = MinMaxScaler(feature_range=(-1, 1))
         self.month_scaler.fit(np.array(self.time_features_df["month"].values).reshape(-1, 1))  # type: ignore
-
+        
         self.bool_scaler = MinMaxScaler(feature_range=(-1, 1))
         self.bool_scaler.fit(np.array([0, 1]).reshape(-1, 1))  # type: ignore
-
+        
         self.list_scaler = MinMaxScaler(feature_range=(-1, 1))
         self.list_scaler.fit(np.array([-1, 0, 1]).reshape(-1, 1))  # type: ignore
 
         self.slot_settlement_prices_DE_scaler = MinMaxScaler(feature_range=(-1, 1))
         self.slot_settlement_prices_DE_scaler.fit(np.array([0.0, 4257.07]).reshape(-1, 1))  # type: ignore
-
+        
         # Observation Space
 
         # Create a dict observation space with all observations inside
+        '''
         self.observation_space = Dict(
             {
                 #"asset_data_historic": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
@@ -260,8 +240,36 @@ class VPPBiddingEnv(Env):
                 "slots_won": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),  # MultiBinary(6), #boolean for each slot, 0 if loss , 1 if won
                 "slot_settlement_prices_DE": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),
             }
+        )'''
+        
+        ################## NEW OBERSVATION SPACE ###########
+        self.observation_space = Dict(
+            {
+                ##"asset_data_historic": Box(low=-1.0, high=1.0, shape=(96,), dtype=np.float32),
+                "asset_data_forecast": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),
+                "predicted_market_prices": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),  # for each slot, can be prices of same day last week
+                "weekday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(7), # for the days of the week
+                ##"week": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(53),  # for week of the year
+                "month": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(12),
+                ##"isHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # holiday = 1, no holiday = 0
+                ##"followsHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # followsHoliday = 1, no followsHoliday = 0
+                ##"priorHoliday": Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),  # Discrete(2), # priorHoliday = 1, no priorHoliday = 0
+                "slots_won": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),  # MultiBinary(6), #boolean for each slot, 0 if loss , 1 if won
+                "slots_reserved": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),
+                #"slots_activated": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),
+                "day_reward_list": Box(low=0.0, high=1.0, shape=(6,), dtype=np.float32),
+                #"slot_settlement_prices_DE": Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32),
+            }
         )
-
+        
+        '''
+        observation_low = np.array([-1.0] * 12,  dtype=np.float32)
+        # 6 values to min available vpp capacity  = the bid sizes 
+        # 6 values to real (predicted) price next day = the bid prices
+        observation_high = np.array([1.0] * 12, dtype=np.float32)
+        self.observation_space = Box(low=observation_low, high=observation_high, shape=(12,), dtype=np.float32)
+        '''
+        
     def _load_test_set(self):
         df = self._load_data("test_set")
         df = df.reset_index()
@@ -353,6 +361,7 @@ class VPPBiddingEnv(Env):
         logging.debug("log_step: " + str(self.logging_step) + " slot: " + 'None' + " self.previous_delivery_results = " + str(self.previous_delivery_results))
 
         self.delivery_results["slots_won"] = [None] * 6
+        self.delivery_results["day_reward_list"] = [None] * 6
         self.delivery_results["slot_settlement_prices_DE"] = [None] * 6
         self.delivery_results["reserved_slots"] = [None] * 6
         self.delivery_results["activated_slots"] = [None] * 6
@@ -432,23 +441,31 @@ class VPPBiddingEnv(Env):
 
         ####################  Default action Space  ###################
         # convert action list with shape (12,) into dict
-        #bid_sizes_normalized = action[0:6]
-        #bid_prices_normalized = action[6:]
-        #bid_sizes_converted = self.size_scaler.inverse_transform(np.array(bid_sizes_normalized).reshape(-1, 1))
-        #bid_prices_converted = self.price_scaler.inverse_transform(np.array(bid_prices_normalized).reshape(-1, 1))
+        bid_sizes_normalized = action[0:6]
+        bid_prices_normalized = action[6:]
+        bid_sizes_converted = self.size_scaler.inverse_transform(np.array(bid_sizes_normalized).reshape(-1, 1))
+        bid_prices_converted = self.price_scaler.inverse_transform(np.array(bid_prices_normalized).reshape(-1, 1))
        
         ####################  for action1 and action2: Box 1  ###################
         #bid_sizes_normalized = action[0]
         #bid_prices_normalized = action[1]
-        #bid_sizes_converted = np.array(bid_sizes_normalized).reshape(-1, 1)
-        #bid_prices_converted = np.array(bid_prices_normalized).reshape(-1, 1)
-       
+        #bid_sizes_converted = self.size_scaler.inverse_transform(np.array(bid_sizes_normalized).reshape(-1, 1))
+        #bid_prices_converted = self.price_scaler.inverse_transform(np.array(bid_prices_normalized).reshape(-1, 1))
+        
+        ####################  for action3,  Box 2  ###################
+
+        #bid_sizes_normalized = action[:,0]
+        #bid_prices_normalized = action[:,1]
+        #bid_sizes_converted = self.size_scaler.inverse_transform(np.array(bid_sizes_normalized).reshape(-1, 1))
+        #bid_prices_converted = self.price_scaler.inverse_transform(np.array(bid_prices_normalized).reshape(-1, 1))
+     
+
         ####################  for action8: multi discrete  ###################
 
-        bid_sizes_normalized = action[0:6]
-        bid_prices_normalized = action[6:]
-        bid_sizes_converted = np.array(bid_sizes_normalized).reshape(-1, 1)
-        bid_prices_converted = np.array(bid_prices_normalized).reshape(-1, 1)
+        #bid_sizes_normalized = action[0:6]
+        #bid_prices_normalized = action[6:]
+        #bid_sizes_converted = np.array(bid_sizes_normalized).reshape(-1, 1)
+        #bid_prices_converted = np.array(bid_prices_normalized).reshape(-1, 1)
        
         #################### old code ###################
         # convert from 2d array to list

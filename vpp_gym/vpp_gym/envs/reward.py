@@ -45,6 +45,7 @@ def calculate_reward_and_financials(self):
     day_penalties: float = 0.0
 
     day_reward: float = 0.0
+    day_reward_list = []
 
     logging.info("log_step: " + str(self.logging_step) + " slot: " + "None" + " Reward Overview:")
     logging.info("log_step: " + str(self.logging_step) + " slot: " + "None" + " self.delivery_results['slots_won']: " + str(self.delivery_results["slots_won"]))
@@ -72,7 +73,7 @@ def calculate_reward_and_financials(self):
             distance_to_settlement_price = agents_bid_price - slot_settlement_price
             logging.info("log_step: " + str(self.logging_step) + " slot: " + str(slot) + " distance_to_settlement_price = " + str(distance_to_settlement_price))
 
-            auction_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.4
+            auction_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.2
             logging.info("log_step: " + str(self.logging_step) + " slot: " + str(slot) + " auction_reward = " + str(auction_reward))
 
         # If agent did not participate in auction, no hard negative reward, but we want to push him to participate in auction
@@ -91,7 +92,7 @@ def calculate_reward_and_financials(self):
 
                 # day reward based on distance to maximumm vpp capacity during slot divided by maximum vpp capacity overall.
                 # the greater the distance the lower the reward
-                auction_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.4
+                auction_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.2
 
             # IF vpp_total_slot_min < 1 , so VPP wouldnt be able to activate any capacity ,
             # the Agent was right and we reward him only with a distance reward for the price.
@@ -115,11 +116,11 @@ def calculate_reward_and_financials(self):
 
                     # day reward based on distance to maximumm vpp capacity during slot divided by maximum vpp capacity overall.
                     # the greater the distance the lower the reward
-                    auction_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.4
+                    auction_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.2
 
                 # if price was higher than settlement price, a reward based on distance_to_settlement_price is given.
                 else:
-                    auction_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.4
+                    auction_reward = 1 - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.2
 
                 logging.info("log_step: " + str(self.logging_step) + " slot: " + str(slot) + " auction_reward = " + str(auction_reward))
                 '''
@@ -174,7 +175,7 @@ def calculate_reward_and_financials(self):
                 distance_to_vpp_capacity = agents_bid_size - vpp_total_slot_min
                 # day reward based on distance to maximumm vpp capacity during slot divided by maximum vpp capacity overall.
                 # the greater the distance the lower the reward
-                reservation_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.4
+                reservation_reward = 1 - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.2
 
             # IF RESERVATION IS SUCCESSFULL
             if self.delivery_results["reserved_slots"][slot] == 1:
@@ -214,7 +215,7 @@ def calculate_reward_and_financials(self):
 
                     # day reward based on ratio between successfull activated 15 min steps (positive and negative FCR) and all 15 min steps.
                     # the more steps were successfully activated, the higher the reward
-                    activation_reward = (activation_possible_count / 16) ** 0.4
+                    activation_reward = (activation_possible_count / 16) ** 0.2
 
                 if self.delivery_results["activated_slots"][slot] == 1:
                     # give reward when capacity could be activated
@@ -230,6 +231,7 @@ def calculate_reward_and_financials(self):
         else:
             slot_profit = slot_revenue - abs(slot_penalty)
 
+        day_reward_list.append(weighted_slot_reward)
         day_revenue += slot_revenue
         day_penalties += slot_penalty
         day_profit += slot_profit
@@ -252,7 +254,7 @@ def calculate_reward_and_financials(self):
 
     # create weighted day reward (Maximum of 1)
     weighted_day_reward = day_reward / 6
-
+    self.delivery_results["day_reward_list"] = day_reward_list
     logging.info("log_step: " + str(self.logging_step) + " day_reward (sum of all weighted_slot_reward ) = " + str(day_reward))
     logging.info("log_step: " + str(self.logging_step) + " weighted_day_reward (= day_reward / 6) for all 6 slots : " + str(weighted_day_reward))
     logging.info("log_step: " + str(self.logging_step) + " day_revenue (sum of all slot_revenue) = " + str(day_revenue))

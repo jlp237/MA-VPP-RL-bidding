@@ -24,7 +24,6 @@ def prepare_activation(self):
     self.delivery_results["positive_activation_possible_list"] = [None] * 6
     self.delivery_results["negative_activation_possible_list"] = [None] * 6
            
-           
 def check_activation_possible(self, agent_bid_size, vpp_total_step):
     """_summary_
 
@@ -106,13 +105,13 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
     # abs for negative and positive FCR
     if abs(capacity_to_activate) > vpp_total_step:
         if capacity_to_activate < 0:
-            logging.error("Check No. 3: Error, no negative FCR possible, vpp_total_step is small and cant do more negative FCR")
+            logging.debug("Check No. 3: Error, no negative FCR possible, vpp_total_step is small and cant do more negative FCR")
         else:
-            logging.error("Check No. 3: Error, no positive FCR possible, FCR is larger than vpp_total_step")
+            logging.debug("Check No. 3: Error, no positive FCR possible, FCR is larger than vpp_total_step")
         # calculate not activated capacity for reward calcutlation
         not_delivered_capacity = abs((vpp_total_step - abs(capacity_to_activate)))
 
-        logging.error("Check No. 4: probability of activaiton with 0.5 percent")
+        logging.debug("Check No. 4: probability of activaiton with 0.5 percent")
         # Check No. 4: Probability of successfull activation
         # Activation is possible based on available capacity.
         # Based on the paper of Seidel and Haase we decide finally if the activaiton is
@@ -140,8 +139,8 @@ def check_activation_possible(self, agent_bid_size, vpp_total_step):
     not_delivered_energy = not_delivered_capacity * 0.0625  # multiply power with time to get energy
 
     logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + " check No. 4: activation_possible : " + str(activation_possible))
-    logging.error("Check No. 4: not_delivered_capacity = " + str(not_delivered_capacity))
-    logging.error("Check No. 4: not_delivered_energy = " + str(not_delivered_energy))
+    logging.debug("Check No. 4: not_delivered_capacity = " + str(not_delivered_capacity))
+    logging.debug("Check No. 4: not_delivered_energy = " + str(not_delivered_energy))
 
     return activation_possible, not_delivered_energy
 

@@ -19,6 +19,7 @@ def simulate_market(self, action_dict):
     self.delivery_results["agents_bid_prices"] = [None] * 6
     self.delivery_results["agents_bid_sizes_round"] = [None] * 6
     self.delivery_results["slots_won"] = [None] * 6
+    self.delivery_results["day_reward_list"] = [0.0] * 6
 
     for slot in range(0, len(self.slot_date_list)):
         slot_date = self.slot_date_list[slot]
@@ -26,9 +27,10 @@ def simulate_market(self, action_dict):
         slot_bids = auction_bids[slot_date:slot_date].reset_index(drop=True).reset_index(drop=False)
         slot_bids_list = slot_bids.to_dict('records')
         # extract the bid size out of the agents action
-        # ROUND TO FULL INTEGER
-        '''agents_bid_size = round(action_dict["size"][slot])'''
-        agents_bid_size = action_dict["size"][slot]
+        # ROUND TO FULL INTEGER if Box action space
+        agents_bid_size = round(action_dict["size"][slot])
+        # Get INTEGER if MultiDiscrete action space
+        #agents_bid_size = action_dict["size"][slot]
         self.delivery_results["agents_bid_sizes_round"][slot] = agents_bid_size
         # extract the bid price out of the agents action
         agents_bid_price = action_dict["price"][slot]

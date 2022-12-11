@@ -6,8 +6,8 @@
             "market_results": "data/clean/market_results.csv",
             "bids": "data/clean/bids_all.csv",
             "time_features" : "data/clean/time_features.csv",
-            "test_set" : "data/clean/test_set.csv",
-            "market_prices" : "data/clean/market_prices.csv"
+            "test_set" : "data/clean/test_set_140days.csv",
+            "market_prices" : "data/clean/wholesale_market_prices.csv"
         },
         "time": {
             "hist_window_size" : 1,  
@@ -23,50 +23,50 @@
                  "max_capacity_MW": 0.05, 
                  "quantity": 177,
                  "max_FCR_capacity_share": 0.1,
-                 "asset_column_names": ["Hydro1", "Hydro3"]                
+                 "asset_column_names": ["Hydro2", "Hydro3"]                
               }, 
            {
                   "type": "run-of-river",
                   "max_capacity_MW": 0.15,
                   "quantity": 32,
                   "max_FCR_capacity_share": 0.1,
-                  "asset_column_names": ["Hydro1", "Hydro3"]        
-              }, 
+                  "asset_column_names": ["Hydro2", "Hydro3"]                
+                }, 
             {
                   "type": "run-of-river",
                   "max_capacity_MW": 0.35, 
                   "quantity": 51,
                   "max_FCR_capacity_share": 0.1,
-                  "asset_column_names": ["Hydro1", "Hydro3"]        
-              }, 
+                  "asset_column_names": ["Hydro2", "Hydro3"]                
+                }, 
                 {
                   "type": "run-of-river",
                   "max_capacity_MW": 0.75, 
                   "quantity": 22,
                   "max_FCR_capacity_share": 0.1,
-                  "asset_column_names": ["Hydro1", "Hydro3"]        
-              }, 
+                  "asset_column_names": ["Hydro2", "Hydro3"]                
+                }, 
              {
                   "type": "run-of-river",
                   "max_capacity_MW": 1.5, 
                   "quantity": 20,
                   "max_FCR_capacity_share": 0.1,
-                  "asset_column_names": ["Hydro1", "Hydro3"]        
-              }, 
+                  "asset_column_names": ["Hydro1", "Hydro2", "Hydro3"]                
+                }, 
                 {
                   "type": "run-of-river",
                   "max_capacity_MW": 3.5, 
                   "quantity": 10,
                   "max_FCR_capacity_share": 0.1,
-                  "asset_column_names": ["Hydro1", "Hydro3"]        
-              }, 
+                  "asset_column_names": ["Hydro1"]                
+                }, 
             {
                   "type": "run-of-river",
                   "max_capacity_MW": 5.0, 
                   "quantity": 6,
                   "max_FCR_capacity_share": 0.1,
-                  "asset_column_names":["Hydro1", "Hydro3"]        
-              }
+                  "asset_column_names": ["Hydro1"]                
+                }
           ]
     }
 }
