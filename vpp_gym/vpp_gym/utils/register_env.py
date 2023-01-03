@@ -15,6 +15,19 @@ def register_env(config, seed):
             'seed': seed,
         },
     )
+    
+    register(
+        id="VPPBiddingEnv-TRAIN-FAST-v1",
+        entry_point='vpp_gym.vpp_gym.envs.vpp_env:VPPBiddingEnv',
+        max_episode_steps=1,
+        kwargs={
+            'config_path': config,
+            'log_level': "WARNING",  # "DEBUG" , "INFO" or  "WARNING"
+            'env_type': "training",
+            'render_mode': "human",  # "human", "fast_training" or None
+            'seed': seed,
+        },
+    )
 
     register(
         id="VPPBiddingEnv-TUNING-v1",
