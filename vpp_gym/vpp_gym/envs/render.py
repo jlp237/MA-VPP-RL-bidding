@@ -11,28 +11,58 @@ from typing import List
 
 
 def render(self, mode="human"):
-    """_summary_"""
+    """Renders the current state of the environment for visualization.
 
+    Args:
+    mode (str, optional): Determines the type of rendering. Can be "human" for visual rendering or "fast_training" for no logs and plots. Defaults to "human".
+    """
     # only plot to wandb when not in test mode
     if self.env_type != "test":
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  now in render()")
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  self.delivery_results['slots_won'] " + str(self.delivery_results["slots_won"]))
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  now in render()"
+        )
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  self.delivery_results['slots_won'] "
+            + str(self.delivery_results["slots_won"])
+        )
 
         # Render Won / Lost Slots
         slots_won = self.delivery_results["slots_won"]
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  slots_won " + str(slots_won))
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  slots_won "
+            + str(slots_won)
+        )
         slots_won, slots_lost, slots_not_participated = list_generator(slots_won)
         won_data = {
-            'Won': slots_won,
-            'Lost': slots_lost,
-            'not part.': slots_not_participated,
+            "Won": slots_won,
+            "Lost": slots_lost,
+            "not part.": slots_not_participated,
         }
         won_df = pd.DataFrame(data=won_data, index=[1, 2, 3, 4, 5, 6])
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  won_df " + str(won_df))
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  won_df "
+            + str(won_df)
+        )
         slots_won_plot = px.bar(
             won_df,
             x=won_df.index,
-            y=['Won', 'Lost', 'not part.'],
+            y=["Won", "Lost", "not part."],
             color_discrete_sequence=["#186A3B", "#78281F", "gainsboro"],
             labels={"index": "Slot", "value": "Auction Result"},
             title="Won / Lost Slots",
@@ -52,19 +82,35 @@ def render(self, mode="human"):
 
         # Render Reservation for each Slot
         slots_reserved = self.delivery_results["reserved_slots"]
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  slots_reserved " + str(slots_reserved))
-        slots_reserved, slots_not_reserved, slots_not_participated = list_generator(slots_reserved)
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  slots_reserved "
+            + str(slots_reserved)
+        )
+        slots_reserved, slots_not_reserved, slots_not_participated = list_generator(
+            slots_reserved
+        )
         reserved_data = {
-            'Reserved': slots_reserved,
-            'Not Reserv.': slots_not_reserved,
-            'lost/not part.': slots_not_participated,
+            "Reserved": slots_reserved,
+            "Not Reserv.": slots_not_reserved,
+            "lost/not part.": slots_not_participated,
         }
         reserved_df = pd.DataFrame(data=reserved_data, index=[1, 2, 3, 4, 5, 6])
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  reserved_df " + str(reserved_df))
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  reserved_df "
+            + str(reserved_df)
+        )
         reserved_plot = px.bar(
             reserved_df,
             x=reserved_df.index,
-            y=['Reserved', 'Not Reserv.', 'lost/not part.'],
+            y=["Reserved", "Not Reserv.", "lost/not part."],
             color_discrete_sequence=["#239B56", "#B03A2E", "gainsboro"],
             labels={"index": "Slot", "value": "Reservation"},
             title="Reservation per Slot",
@@ -84,19 +130,35 @@ def render(self, mode="human"):
 
         # Render Activation for each Slot
         slots_activated = self.delivery_results["activated_slots"]
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  slots_activated " + str(slots_activated))
-        slots_activated, slots_not_activated, slots_not_participated = list_generator(slots_activated)
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  slots_activated "
+            + str(slots_activated)
+        )
+        slots_activated, slots_not_activated, slots_not_participated = list_generator(
+            slots_activated
+        )
         activated_data = {
-            'Activated': slots_activated,
-            'Not Activ.': slots_not_activated,
-            'lost/not part./ not res.': slots_not_participated,
+            "Activated": slots_activated,
+            "Not Activ.": slots_not_activated,
+            "lost/not part./ not res.": slots_not_participated,
         }
         activated_df = pd.DataFrame(data=activated_data, index=[1, 2, 3, 4, 5, 6])
-        logging.debug("log_step: " + str(self.logging_step) + " slot: " + "None" + "  activated_df " + str(activated_df))
+        logging.debug(
+            "log_step: "
+            + str(self.logging_step)
+            + " slot: "
+            + "None"
+            + "  activated_df "
+            + str(activated_df)
+        )
         activated_plot = px.bar(
             activated_df,
             x=activated_df.index,
-            y=['Activated', 'Not Activ.', 'lost/not part./ not res.'],
+            y=["Activated", "Not Activ.", "lost/not part./ not res."],
             color_discrete_sequence=["#2ECC71", "#E74C3C", "gainsboro"],
             labels={"index": "Slot", "value": "Activation"},
             title="Activation per Slot",
@@ -153,8 +215,8 @@ def render(self, mode="human"):
             go.Scatter(
                 x=list(range(1, 97)),
                 y=self.delivery_results["vpp_total"],
-                fill='tozeroy',
-                fillcolor='rgba(142, 68, 173 0.4)',
+                fill="tozeroy",
+                fillcolor="rgba(142, 68, 173 0.4)",
                 line_color="#8E44AD",
                 name="VPP Cap.",
             )
@@ -163,8 +225,8 @@ def render(self, mode="human"):
             go.Scatter(
                 x=list(range(1, 97)),
                 y=self.delivery_results["bid_sizes_all_slots"],
-                fill='tozeroy',
-                fillcolor='rgba(211, 84, 0, 0.5)',
+                fill="tozeroy",
+                fillcolor="rgba(211, 84, 0, 0.5)",
                 line_color="#D35400",
                 name="Agents Bid",
             )
