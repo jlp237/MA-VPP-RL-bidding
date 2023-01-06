@@ -118,7 +118,7 @@ def calculate_reward_and_financials(self):
 
             auction_reward = (
                 1
-                - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.4
+                - (distance_to_settlement_price / self.price_scaler.data_max_[0]) ** 0.2
             )
             logging.info(
                 "log_step: "
@@ -158,7 +158,7 @@ def calculate_reward_and_financials(self):
                 # the greater the distance the lower the reward
                 auction_reward = (
                     1
-                    - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.4
+                    - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.2
                 )
 
             # IF vpp_total_slot_min < 1 , so VPP wouldnt be able to activate any capacity ,
@@ -277,7 +277,7 @@ def calculate_reward_and_financials(self):
                 # the greater the distance the lower the reward
                 reservation_reward = (
                     1
-                    - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.4
+                    - (distance_to_vpp_capacity / self.size_scaler.data_max_[0]) ** 0.2
                 )
 
             # IF RESERVATION IS SUCCESSFULL
@@ -363,7 +363,7 @@ def calculate_reward_and_financials(self):
 
                     # day reward based on ratio between successfull activated 15 min steps (positive and negative FCR) and all 15 min steps.
                     # the more steps were successfully activated, the higher the reward
-                    activation_reward = (activation_possible_count / 16) ** 0.4
+                    activation_reward = (activation_possible_count / 16) ** 0.2
 
                 if self.delivery_results["activated_slots"][slot] == 1:
                     # give reward when capacity could be activated
