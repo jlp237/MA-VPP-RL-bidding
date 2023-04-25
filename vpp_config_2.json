@@ -1,0 +1,44 @@
+{
+    "config": {
+        "csv_paths":{
+            "renewables" :  "data/clean/renewables.csv", 
+            "tenders" :  "data/clean/tenders_all.csv",
+            "market_results": "data/clean/market_results.csv",
+            "bids": "data/clean/bids_all.csv",
+            "time_features" : "data/clean/time_features.csv",
+            "test_set" : "data/clean/test_set_140days.csv",
+            "market_prices" : "data/clean/wholesale_market_prices.csv"
+        },
+        "time": {
+            "hist_window_size" : 1,  
+            "forecast_window_size" : 1, 
+            "first_slot_date_start" : "2020-07-02 22:00:00+00:00", 
+            "last_slot_date_end" : "2022-05-31 21:45:00+00:00"
+        }
+    }, 
+    "assets": {
+          "hydro": [ 
+            {
+                "type": "run-of-river",
+                 "max_capacity_MW": 10, 
+                 "quantity": 1,
+                 "max_FCR_capacity_share": 0.5,
+                 "asset_column_names": ["Hydro1"]                
+              }, 
+           {
+                  "type": "run-of-river",
+                  "max_capacity_MW": 10,
+                  "quantity": 1,
+                  "max_FCR_capacity_share": 0.5,
+                  "asset_column_names": ["Hydro2"]        
+              }, 
+            {
+                  "type": "run-of-river",
+                  "max_capacity_MW": 10, 
+                  "quantity": 1,
+                  "max_FCR_capacity_share": 0.5,
+                  "asset_column_names": ["Hydro3"]        
+              }
+          ]
+    }
+}
