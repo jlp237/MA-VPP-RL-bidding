@@ -1,0 +1,75 @@
+[markets]
+enabled = ["fcr"]
+
+[time]
+hist_window_size = 1
+forecast_window_size = 1
+first_slot_date_start = "2020-07-02 22:00:00+00:00"
+last_slot_date_end = "2022-05-31 21:45:00+00:00"
+
+[data]
+renewables = "data/clean/renewables.csv"
+tenders = "data/clean/tenders_all.csv"
+market_results = "data/clean/market_results.csv"
+bids = "data/clean/bids_all.csv"
+time_features = "data/clean/time_features.csv"
+test_set = "data/clean/test_set_140days.csv"
+market_prices = "data/clean/wholesale_market_prices.csv"
+
+[wandb]
+project = "vpp-bidding-test-large"
+mode = "online"
+
+[training]
+total_timesteps = 11140
+seed = 42
+
+# Large VPP: 288 hydro units across 7 size classes — 140-day test set
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 0.05
+quantity = 177
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro2", "Hydro3"]
+
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 0.15
+quantity = 32
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro2", "Hydro3"]
+
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 0.35
+quantity = 51
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro2", "Hydro3"]
+
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 0.75
+quantity = 22
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro2", "Hydro3"]
+
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 1.5
+quantity = 20
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro1", "Hydro2", "Hydro3"]
+
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 3.5
+quantity = 10
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro1"]
+
+[[assets.hydro]]
+type = "run-of-river"
+max_capacity_mw = 5.0
+quantity = 6
+max_fcr_capacity_share = 0.1
+asset_column_names = ["Hydro1"]

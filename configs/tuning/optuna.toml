@@ -1,0 +1,101 @@
+# Optuna hyperparameter tuning configuration
+# Each algorithm section defines the search space for that algorithm.
+
+[study]
+sampler = "TPESampler"
+pruner = "MedianPruner"
+direction = "maximize"
+
+[ppo]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+n_steps = { type = "categorical", choices = [8, 16, 32, 64, 128, 256, 512, 1024] }
+batch_size = { type = "categorical", choices = [8, 16, 32, 64, 128, 256] }
+n_epochs = { type = "categorical", choices = [1, 5, 10, 20] }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+gae_lambda = { type = "categorical", choices = [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0] }
+clip_range = { type = "categorical", choices = [0.1, 0.2, 0.3, 0.4] }
+ent_coef = { type = "log_uniform", low = 1e-8, high = 0.1 }
+vf_coef = { type = "uniform", low = 0.1, high = 1.0 }
+max_grad_norm = { type = "categorical", choices = [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0, 5.0] }
+use_sde = true
+net_arch = [256, 256]
+activation_fn = "elu"
+ortho_init = false
+
+[a2c]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+n_steps = { type = "categorical", choices = [8, 16, 32, 64, 128, 256, 512] }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+gae_lambda = { type = "categorical", choices = [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0] }
+ent_coef = { type = "log_uniform", low = 1e-8, high = 0.1 }
+vf_coef = { type = "uniform", low = 0.1, high = 1.0 }
+max_grad_norm = { type = "categorical", choices = [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0, 5.0] }
+normalize_advantage = { type = "categorical", choices = [true, false] }
+use_rms_prop = { type = "categorical", choices = [true, false] }
+use_sde = true
+
+[sac]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+tau = { type = "log_uniform", low = 0.001, high = 0.1 }
+batch_size = { type = "categorical", choices = [16, 32, 64, 128, 256, 512] }
+buffer_size = { type = "categorical", choices = [1000, 10000, 100000, 1000000] }
+train_freq = { type = "categorical", choices = [1, 4, 8, 16, 32, 64, 128, 256] }
+gradient_steps = { type = "categorical", choices = [1, 4, 8, 16, 32, 64, 128] }
+learning_starts = { type = "categorical", choices = [0, 100, 500, 1000] }
+ent_coef = "auto_0.1"
+
+[ddpg]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+tau = { type = "log_uniform", low = 0.001, high = 0.1 }
+batch_size = { type = "categorical", choices = [16, 32, 64, 128, 256, 512] }
+buffer_size = { type = "categorical", choices = [1000, 10000, 100000, 1000000] }
+train_freq = { type = "categorical", choices = [1, 4, 8, 16, 32, 64, 128, 256] }
+gradient_steps = { type = "categorical", choices = [1, 4, 8, 16, 32, 64, 128] }
+learning_starts = { type = "categorical", choices = [0, 100, 500, 1000] }
+noise_type = { type = "categorical", choices = ["ornstein-uhlenbeck", "normal"] }
+
+[td3]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+tau = { type = "log_uniform", low = 0.001, high = 0.1 }
+batch_size = { type = "categorical", choices = [16, 32, 64, 128, 256, 512] }
+buffer_size = { type = "categorical", choices = [1000, 10000, 100000, 1000000] }
+train_freq = { type = "categorical", choices = [1, 4, 8, 16, 32, 64, 128, 256] }
+gradient_steps = { type = "categorical", choices = [1, 4, 8, 16, 32, 64, 128] }
+learning_starts = { type = "categorical", choices = [0, 100, 500, 1000] }
+policy_delay = { type = "categorical", choices = [1, 2, 3, 5] }
+target_policy_noise = { type = "categorical", choices = [0.1, 0.2, 0.3, 0.5] }
+
+[trpo]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+n_steps = { type = "categorical", choices = [8, 16, 32, 64, 128, 256, 512, 1024] }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+gae_lambda = { type = "categorical", choices = [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0] }
+cg_max_steps = { type = "categorical", choices = [5, 10, 20, 25, 30] }
+cg_damping = { type = "categorical", choices = [0.01, 0.05, 0.1, 0.2] }
+target_kl = { type = "categorical", choices = [0.01, 0.02, 0.04, 0.1] }
+n_critic_updates = { type = "categorical", choices = [5, 10, 20, 25, 30] }
+
+[recurrent_ppo]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+n_steps = { type = "categorical", choices = [8, 16, 32, 64, 128, 256, 512, 1024] }
+batch_size = { type = "categorical", choices = [8, 16, 32, 64, 128, 256] }
+n_epochs = { type = "categorical", choices = [1, 5, 10, 20] }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+gae_lambda = { type = "categorical", choices = [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0] }
+clip_range = { type = "categorical", choices = [0.1, 0.2, 0.3, 0.4] }
+ent_coef = { type = "log_uniform", low = 1e-8, high = 0.1 }
+vf_coef = { type = "uniform", low = 0.1, high = 1.0 }
+max_grad_norm = { type = "categorical", choices = [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 2.0, 5.0] }
+use_sde = true
+
+[tqc]
+learning_rate = { type = "log_uniform", low = 1e-5, high = 1e-2 }
+gamma = { type = "categorical", choices = [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 1.0] }
+tau = { type = "log_uniform", low = 0.001, high = 0.1 }
+batch_size = { type = "categorical", choices = [16, 32, 64, 128, 256, 512] }
+buffer_size = { type = "categorical", choices = [1000, 10000, 100000, 1000000] }
+n_quantiles = { type = "categorical", choices = [5, 10, 25, 50] }
+top_quantiles_to_drop_per_net = { type = "categorical", choices = [0, 1, 2, 3, 5] }
